@@ -67,3 +67,18 @@ To run toolmaker's own unit tests (not to be confused with the unit tests in the
 ```bash
 uv run python -m pytest tests
 ```
+
+## Reference
+If you find our work useful in your research or if you use parts of this code please consider citing our [preprint](https://arxiv.org/abs/2502.11705):
+
+```bibtex
+@misc{wolflein2025toolmaker,
+  author        = {W\"{o}lflein, Georg and Ferber, Dyke and Truhn, Daniel and Arandjelovi\'{c}, Ognjen and Kather, Jakob Nikolas},
+  title         = {{LLM} Agents Making Agent Tools},
+  year          = {2025},
+  eprint        = {2502.11705},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  url           = {https://arxiv.org/abs/2502.11705}
+}
+```
