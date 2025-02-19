@@ -1,0 +1,277 @@
+Smarter, Better, Faster, Longer: A Modern Bidirectional Encoder for Fast, Memory Efficient, and Long Context Finetuning and Inference
+
+Benjamin Warner1†   Antoine Chaffin2†   Benjamin Clavié1†
+Orion Weller3   Oskar Hallström2   Said Taghadouini2
+Alexis Gallagher1   Raja Biswas1   Faisal Ladhak4*   Tom Aarsen5
+Nathan Cooper1   Griffin Adams1   Jeremy Howard1   Iacopo Poli2
+1Answer.AI   2LightOn   3Johns Hopkins University   4NVIDIA   5HuggingFace
+†: core authors, *: work done while at Answer.AI
+Correspondence: {bw,bc}@answer.ai, antoine.chaffin@lighton.ai
+Abstract
+
+Encoder-only transformer models such as BERT offer a great performance-size tradeoff for retrieval and classification tasks with respect to larger decoder-only models. Despite being the workhorse of numerous production pipelines, there have been limited Pareto improvements to BERT since its release. In this paper, we introduce ModernBERT, bringing modern model optimizations to encoder-only models and representing a major Pareto improvement over older encoders. Trained on 2 trillion tokens with a native 8192 sequence length, ModernBERT models exhibit state-of-the-art results on a large pool of evaluations encompassing diverse classification tasks and both single and multi-vector retrieval on different domains (including code). In addition to strong downstream performance, ModernBERT is also the most speed and memory efficient encoder and is designed for inference on common GPUs.
+
+Smarter, Better, Faster, Longer: A Modern Bidirectional Encoder for Fast, Memory Efficient, and Long Context Finetuning and Inference
+
+
+Benjamin Warner1†   Antoine Chaffin2†   Benjamin Clavié1†	Orion Weller3   Oskar Hallström2   Said Taghadouini2	Alexis Gallagher1   Raja Biswas1   Faisal Ladhak4*   Tom Aarsen5	Nathan Cooper1   Griffin Adams1   Jeremy Howard1   Iacopo Poli2	1Answer.AI   2LightOn   3Johns Hopkins University   4NVIDIA   5HuggingFace	†: core authors, *: work done while at Answer.AI	Correspondence: {bw,bc}@answer.ai, antoine.chaffin@lighton.ai
+
+
+1 Introduction
+
+After the release of BERT Devlin et al. (2019), encoder-only transformer-based Vaswani et al. (2017) language models dominated most applications of modern Natural Language Processing (NLP). Despite the rising popularity of Large Language Models (LLMs) such as GPT Radford et al. (2018, 2019); Brown et al. (2020), Llama Touvron et al. (2023); Dubey et al. (2024), and Qwen Bai et al. (2023); Yang et al. (2024), encoder-only models remain widely used in a variety of non-generative downstream applications.†
+†
+https://github.com/AnswerDotAI/ModernBERT
+
+The encoder’s popularity is largely due to their modest inference requirements, enabling them to efficiently process corpora of documents at scale for retrieval and quickly perform discriminative tasks. Encoder models offer a compelling trade-off in quality versus size, making them a popular option against encoder-decoder and decoder-only language models when dealing with substantial amounts of data Penedo et al. (2024).
+
+Encoder models are particularly popular in Information Retrieval (IR) applications, e.g., semantic search, with notable progress on leveraging encoders for this task Karpukhin et al. (2020); Khattab and Zaharia (2020). While LLMs have taken the spotlight in recent years, they have also motivated a renewed interest in encoder-only models for IR. Indeed, encoder-based semantic search is a core component of Retrieval-Augmented Generation (RAG) pipelines Lewis et al. (2020), where encoder models are used to retrieve and feed LLMs with context relevant to user queries.
+
+Encoder-only models are also still frequently used for a variety of discriminative tasks such as classification Tunstall et al. (2022) or Natural Entity Recognition (NER) Zaratiana et al. (2024), where they often match the performance of specialized LLMs. Here again, they can be used in conjunction with LLMs, for example detecting toxic prompts Ji et al. (2023); Jiang et al. (2024b) and preventing responses, or routing queries in an agentic framework Yao et al. (2023); Schick et al. (2023).
+
+Surprisingly, these pipelines currently rely on older models, and quite often on the original BERT itself as their backbone Wang et al. (2022); Xiao et al. (2023), without leveraging improvements developed in recent years. Practitioners face many drawbacks: sequence lengths limited to 512 tokens, suboptimal model design Anthony et al. (2024) and vocabulary sizes Karpathy (2023), and generally inefficient architectures, whether in terms of downstream performance or computational efficiency. Finally, training data is limited in volume and restricted to narrow domains (especially lacking code data) or lacking knowledge of recent events.
+
+Recent modernization efforts have only partially addressed the shortcomings of encoder-only models due to limited breadth. MosaicBERT Portes et al. (2023), CrammingBERT Geiping and Goldstein (2023), and AcademicBERT Izsak et al. (2021) focused on matching BERT performance with better training efficiency. NomicBERT Nussbaum et al. (2024) and GTE-en-MLM Zhang et al. (2024) (developed concurrently to this work) introduced longer-context encoder models focused on retrieval applications, but did not optimize for efficiency or classification performance, and re-used older training data mixtures which is especially apparent in programming-related tasks.
+
+Contributions We present ModernBERT, a modernized encoder-only transformer model, with an improved architecture designed to increase downstream performance and efficiency, especially over longer sequence lengths. We also bring encoder-only models to modern, larger data scales, by training on 2 trillion tokens, with a data mixture including code data. We release two models, ModernBERT-base and ModernBERT-large, which reach state-of-the-art overall performance against all existing encoder models on a wide variety of downstream tasks. These results are achieved with considerably higher inference efficiency, processing sequences of 8192 tokens almost two times faster than previous models.
+
+To support future research on encoder-only models, we release FlexBERT1
+1
+FlexBERT is built on top of a revised MosaicBERT Portes et al. (2023) codebase.
+, our modular architecture framework allowing easy experimentation, and inspired by Pythia Biderman et al. (2023), all intermediate training checkpoints (further detailed in Section 2.2.2).
+
+2 Methods
+
+2.1 Architectural Improvements
+
+Our model architecture extends the standard transformer architecture Vaswani et al. (2017) by incorporating extensively tested recent advances (Section 2.1.1). We introduce additional efficiency-oriented modifications, through both architectural and implementation improvements (Section 2.1.2) and a GPU optimized model design (Section 2.1.3). All of our architectural decisions were informed by ablations, which we detail in Appendix D.
+
+2.1.1 Modern Transformer
+
+Bias Terms Following Dayma et al. (2021), we disable bias terms in all linear layers except for the final decoder linear layer2
+2
+While many efficient BERT training recipes disable the bias term in the decoder, e.g.  Geiping and Goldstein (2023), we hypothesized a decoder bias might help alleviate weight tying’s negative effects Gao et al. (2019); Welch et al. (2020).
+. We also disable all bias terms in Layer Norms  Xu et al. (2019). These two changes allow us to spend more of our parameter budget in linear layers.
+
+Positional Embeddings We use rotary positional embeddings (RoPE) Su et al. (2024) instead of absolute positional embeddings. This choice is motivated by the proven performance of RoPE in short- and long-context language models Black et al. (2022); Dubey et al. (2024); Gemma et al. (2024), efficient implementations in most frameworks, and ease of context extension.
+
+Normalization We use a pre-normalization block Xiong et al. (2020) with the standard layer normalization Lei Ba et al. (2016), which is known to help stabilize training Xiong et al. (2020). Similar to CrammingBERT Geiping and Goldstein (2023) which also uses pre-normalization, we add a LayerNorm after the embedding layer. To avoid repetition, we remove the first LayerNorm in the first attention layer.
+
+Activation We adopt GeGLU Shazeer (2020), a Gated-Linear Units (GLU)-based Dauphin et al. (2017) activation function built on top of the original BERT’s GeLU Hendrycks and Gimpel (2016) activation function. This is in line with recent work showing consistent empirical improvements when using GLU variants Shazeer (2020); Geiping and Goldstein (2023).
+
+2.1.2 Efficiency Improvements
+
+Alternating Attention Following recent work on efficient long context models Gemma et al. (2024), attention layers in ModernBERT alternate between global attention, where every token within a sequence attends to every other token, and local attention, where tokens only attend to each other within a small sliding window Beltagy et al. (2020). In ModernBERT, every third layer employs global attention with a RoPE theta of 160,000 and the remaining layers use a 128 token, local sliding window attention with a RoPE theta of 10,000.
+
+Unpadding ModernBERT follows MosaicBERT Portes et al. (2023) and GTE Zhang et al. (2024) in employing unpadding Zeng et al. (2022) for both training and inference. Encoder-only language models typically use padding tokens to ensure a uniform sequence length in a batch, wasting compute on semantically empty tokens. Unpadding avoids this inefficiency by removing padding tokens, concatenating all sequences from a minibatch into a single sequence, and processing it as a batch of one. Prior unpadding implementations unpad and repad sequences internally for different model layers, wasting compute and memory bandwidth. We use Flash Attention’s variable length attention and RoPE implementations, allowing jagged attention masks and RoPE applications on one unpadded sequence. ModernBERT unpads inputs before the token embedding layer and optionally repads model outputs leading to a 10-to-20 percent performance improvement over other unpadding methods.
+
+Flash Attention Flash Attention Dao et al. (2022) is a core component of modern transformer-based models, providing memory and compute efficient attention kernels. At the start of this work, Flash Attention 3 Shah et al. (2024), the most recent iteration for Nvidia H100 GPUs, did not include support for sliding window attention. ModernBERT uses a mixture of Flash Attention 3 for global attention layers and Flash Attention 2 Dao (2023) for local attention layers.
+
+torch.compile We leverage PyTorch’s built-in compiling Ansel et al. (2024) to improve the training efficiency by compiling all compatible modules. This yields a 10 percent improvement in throughput with negligible compilation overhead.
+
+2.1.3 Model Design
+
+At the same parameter count, models with more narrow layers (Deep & Narrow) have different learning patterns than models with fewer wide layers (Shallow & Wide) Nguyen et al. (2021). Tay et al. (2022) and Liu et al. (2024) have shown that Deep & Narrow language models have better downstream performance than their shallower counterparts, at the expense of slower inference.
+
+Anthony et al. (2024) highlighted that large runtime gains can be unlocked by designing models in a hardware-aware way, which had previously been anecdotally observed by many practitioners Shoeybi et al. (2019); Karpathy (2023); Black et al. (2022). ModernBERT was designed through many small-scale ablations to maximize the utilization of a basket of common GPUs3
+3
+Which, at the time of this work, are server GPUs: NVIDIA T4, A10, L4, A100, and H100 and consumer GPUs: NVIDIA RTX 3090 and 4090. Prioritization was given to inference GPUs (excluding A100 & H100).
+, while aiming to be as Deep & Narrow as possible without a significant inference slowdown.
+
+ModernBERT has 22 and 28 layers for the base and large models, for a total parameter count of 149 and 395 million, respectively, striking the balance between downstream performance and hardware efficiency. ModernBERT base has a hidden size of 768 with a GLU expansion of 2,304, while large has a hidden size of 1,024 and GLU expansion of 5,248. These ratios allow optimal tiling across tensor cores and the most efficient tiling across the differing number of streaming multiprocessors on our target basket of GPUs. More details on model design are provided in Appendix B.
+
+2.2 Training
+
+2.2.1 Data
+
+Mixture Both ModernBERT models are trained on 2 trillion tokens of primarily English data from a variety of data sources, including web documents, code, and scientific literature, following common modern data mixtures. We choose the final data mixture based on a series of ablations.
+
+Tokenizer Unlike the majority of recent encoders which reuse the original BERT tokenizer Nussbaum et al. (2024); Portes et al. (2023); Zhang et al. (2024), we opt to use a modern BPE tokenizer. We use a modified version of the OLMo tokenizer  Groeneveld et al. (2024) which provides better token efficiency and performance on code-related tasks. The ModernBERT tokenizer uses the same special tokens (e.g., [CLS] and [SEP]) and templating as the original BERT model Devlin et al. (2019), facilitating backwards compatibility. To ensure optimal GPU utilization Anthony et al. (2024); Karpathy (2023), the vocabulary is set to 50,368, a multiple of 64 and includes 83 unused tokens to support downstream applications.
+
+Sequence Packing In order to avoid high minibatch-size variance within our training batches as a result of unpadding, we adopt sequence packing Raffel et al. (2020); Krell et al. (2022) with a greedy algorithm, which resulted in a sequence packing efficiency of over 99 percent, ensuring batch size uniformity.
+
+2.2.2 Training Settings
+
+MLM We follow the Masked Language Modeling (MLM) setup used by MosaicBERT Portes et al. (2023). We remove the Next-Sentence Prediction objective which introduces noticeable overhead for no performance improvement Liu et al. (2019a); Izsak et al. (2021), and use a masking rate of 30 percent, as the original rate of 15 percent has since been shown to be sub-optimal Wettig et al. (2023).
+
+Optimizer We use the StableAdamW optimizer Wortsman et al. (2023), which improves upon AdamW Loshchilov and Hutter (2019) by adding Adafactor-style Shazeer and Stern (2018) update clipping as a per-parameter learning rate adjustment. StableAdamW’s learning rate clipping outperformed standard gradient clipping on downstream tasks and led to more stable training. Hyperparameters details are given in Appendix A.
+
+Learning Rate Schedule During pretraining, we use a modified trapezoidal Learning Rate (LR) schedule Xing et al. (2018), also known as Warmup-Stable-Decay (WSD) Zhai et al. (2022); Hu et al. (2024). After a short LR warmup, the trapezoidal schedule holds the LR constant for the majority of training, followed by a short LR decay. This schedule has been shown to match the performance of cosine scheduling Hägele et al. (2024); Hallström et al. (2024) with the benefit of enabling continual training on any checkpoint without cold restart issues Ash and Adams (2019). Unlike most trapezoidal schedules, we use a 
+1
+−
+sqrt
+ LR decay Hägele et al. (2024), as we found it to outperform linear and cosine decay.
+
+We trained ModernBERT-base at a constant LR of 8e-4 for 1.7 trillion tokens following a 3 billion token warmup. After a 2 billion token warmup, we trained ModernBERT-large at a LR of 5e-4 for 900 billion tokens. We rolled back and restarted training at 5e-5 for the remaining 800 billion tokens after large’s loss plateaued for a few hundred billion tokens at 5e-4.
+
+Batch Size Schedule Batch size scheduling starts with smaller gradient accumulated batches, increasing over time to the full batch size. In ablations, this schedule accelerated training progress. We warmup the batch size from 768 to 4,608 over 50 billion tokens and from 448 to 4,928 over 10 billion tokens, for ModernBERT-base and -large, respectively, with an uneven token schedule so each batch size has the same number of update steps. Details are provided in Appendix A.1.
+
+Weight Initialization and Tiling We initialize ModernBERT-base with random weights following the Megatron initialization Shoeybi et al. (2019). For ModernBERT-large, we follow the Phi model family Li et al. (2023); Javaheripi et al. (2023)4
+4
+As detailed in their 2023 NeurIPS presentation.
+and initialize -large’s weights from ModernBERT-base. In ablation runs, this consistently matched Phi’s improved training results and greatly speed up the initial loss decrease of our model training5
+5
+This initialization reduced the amount of batch size and LR warmup needed for ModernBERT-large
+. Details are provided in Appendix A.2.
+
+Context Length Extension After training on 1.7 trillion tokens at a 1024 sequence length and RoPE theta of 10,000, we extend the native context length of ModernBERT to 8192 tokens by increasing the global attention layer’s RoPE theta to 160,000 and train for an additional 300 billion tokens. We first train at a constant lower learning rate6
+6
+We only lowered the LR for ModernBERT-base, as large already decreased LR during the 1024 token training phase.
+ of 3e-4 for 250 billion tokens on an 8192 token mixture of the original pretraining dataset sampled following  Fu et al. (2024). Next, we upsample higher-quality sources following Gao et al. (2024) and conduct the decay phase with a 
+1
+−
+sqrt
+ LR schedule over 50 billion tokens. This context extension process yielded the most balanced model on downstream tasks, as most of our ablations using only one of these strategies resulted in a performance loss on either retrieval or classification tasks.
+
+3 Downstream Evaluation
+
+We performed an extensive set of evaluations, across a large range of tasks, aiming to demonstrate the versatility of ModernBERT in common scenarios.
+
+For all tasks, ModernBERT is evaluated against existing encoders of similar size. The base size, conventionally defined as under 150 million parameters, includes BERT-base Devlin et al. (2019), DeBERTa-v3-base He et al. (2023), RoBERTa-base Liu et al. (2019a), as well as the more recent 8192 context NomicBERT Nussbaum et al. (2024) and GTE-en-MLM-base Zhang et al. (2024). The large size, conventionally defined as above 300 million and under 500 million parameters, includes BERT-large-uncased Devlin et al. (2019), DeBERTa-v3-large He et al. (2023) and RoBERTa-large Liu et al. (2019a) and GTE-en-MLM-large Zhang et al. (2024).
+
+3.1 Evaluation Setting
+
+3.1.1 Natural Language Understanding
+
+The General Language Understanding Evaluation (GLUE) benchmark Wang et al. (2018) is the standard Natural Language Understanding (NLU) benchmark for encoder models, aiming to measure how well a model performs across a range of sentence or sentence-pair understanding tasks, such as sentiment detection Liu et al. (2019b) or language entailment, through tasks such as MNLI Williams et al. (2018). Although GLUE is often regarded as saturated by the best-performing models, such as large language models Zhao et al. (2023), it remains one of the most commonly used evaluation suites for smaller encoder-based models, and provides a good impression of a model’s performance on common classification tasks Portes et al. (2023); Zhang et al. (2024); He et al. (2023).
+
+We follow the practice of previous studies Devlin et al. (2019); Liu et al. (2019a); He et al. (2023) and conduct a hyperparameter search on each GLUE subset (detailed in Appendix E.1) in order to provide values comparable to other models.7
+7
+As Zhang et al. (2024) do not explicitly mention a parameter sweep, we initially ran the same hyperparameter sweep as we did for ModernBERT, but observed inconsistencies in the results. To avoid under-representing GTE-en-MLM’s capabilities, we choose to use their reported GLUE results.
+
+3.1.2 Text Retrieval
+
+Information Retrieval (IR) is one of the most common applications of encoder-only models,8
+8
+At the time of this paper’s writing, over half of the 100 most downloaded models on the HuggingFace Model Hub were encoder-based retrieval models.
+ where they are used to represent documents and queries in semantic search Karpukhin et al. (2020). This domain has recently seen considerable growth and interest following the spread of LLMs where semantic search powered by lightweight models is used to provide relevant context to LLMs as part of Retrieval-Augmented Generation pipelines.
+
+We evaluate models in both the single-vector Dense Passage Retrieval (DPR) Karpukhin et al. (2020) setting and the multi-vector ColBERT Khattab and Zaharia (2020) setting.
+
+We report retrieval results on the popular BEIR evaluation suite Thakur et al. (2021), the common standard for evaluating retrieval performance across a variety of tasks and domains, using the nDCG@10 metric. For each setting detailed below, we conduct a learning rate sweep based on results over a subset of the BEIR benchmarks to select the final model, detailed in Appendix E.2.
+
+Single vector retrieval One of the most common approaches to neural retrieval using encoders is DPR Karpukhin et al. (2020), where a single-vector is used to represent an entire document. The similarity between a query and a document can then be computed through distance operations, such as cosine similarity. Models are finetuned using contrastive learning to create representations which are close if a document is relevant to a query, and distant if not van den Oord et al. (2018).
+
+We train every base model using the MS-MARCO Bajaj et al. (2016) dataset with mined hard negatives Xuan et al. (2020) on 1.25M samples with a batch size of 16 and learning rate warmup for 5% of the training using sentence-transformers Reimers and Gurevych (2019).
+
+Multi vector retrieval Multi-vector retrieval, championed by ColBERT Khattab and Zaharia (2020), seeks to mitigate lost information from compressing an entire sequence into a single vector. In multi-vector retrieval, each document is represented by all of its individual token vectors, and the similarity between a query and a document is computed using the MaxSim9
+9
+The sum for every query token of its similarity with the most similar document token
+ operator.
+
+We adopt the training setup of JaColBERTv2.5 Clavié (2024), an update on the ColBERTv2 Santhanam et al. (2022) training procedure, with a batch size of 16 and a 5% learning rate warmup. We train all models by distilling the knowledge of a teacher model by using the KL-Divergence between the normalized teacher and student scores. Models are trained on 810k samples from MS-Marco Bajaj et al. (2016) and teacher scores from BGE-M3 Chen et al. (2024), using the PyLate library Chaffin and Sourty (2024).
+
+IR (DPR)	IR (ColBERT)	NLU	Code		Model	BEIR	 MLDROOD  	 MLDRID  	BEIR	MLDROOD	 GLUE 	 CSN 	 SQA 	
+Base
+ 	BERT	38.9	23.9	32.2	49.0	28.1	84.7	41.2	59.5	RoBERTa	37.7	22.9	32.8	48.7	28.2	86.4	44.3	59.6	DeBERTaV3	20.2	5.4	13.4	47.1	21.9	88.1	17.5	18.6	NomicBERT	41.0	26.7	30.3	49.9	61.3	84.0	41.6	61.4	GTE-en-MLM	41.4	34.3	44.4	48.2	69.3	85.6	44.9	71.4	ModernBERT	41.6	27.4	44.0	51.3	80.2	88.4	56.4	73.6	
+Large
+ 	BERT	38.9	23.3	31.7	49.5	28.5	85.2	41.6	60.8	RoBERTa	41.4	22.6	36.1	49.8	28.8	88.9	47.3	68.1	DeBERTaV3	25.6	7.1	19.2	46.7	23.0	91.4	21.2	19.7	GTE-en-MLM	42.5	36.4	48.9	50.7	71.3	87.6	40.5	66.9	ModernBERT	44.0	34.3	48.6	52.4	80.4	90.4	59.5	83.9 
+Table 1: Results for all models across an overview of all tasks. CSN refers to CodeSearchNet and SQA to StackQA. MLDRID refers to in-domain (fine-tuned on the training set) evaluation, and MLDROOD to out-of-domain.
+3.1.3 Long-Context Text Retrieval
+
+With a native 8192 context length, ModernBERT improves long-context performance over most existing encoders. However, there are relatively few standardized long-context benchmarks for encoder-only models, and most benchmarks, such as Needle-in-a-haystack Kamradt (2023) and RULER Hsieh et al. (2024) are geared towards generative tasks. Given this limitation, we demonstrate improved long-context performance on the English subset of MLDR Chen et al. (2024), a long-context retrieval benchmark comprised of over 200,000 long documents. We evaluate three settings:
+
+Single Vector – Out-Of-Domain Models are trained on short-context MS-MARCO as described above, and is evaluated on long context MLDR without any further fine-tuning.
+
+Single Vector – In Domain Models trained on MS-MARCO are further fine-tuned on long-context MLDR training set before being evaluated.
+
+Multi-Vector – Out-Of-Domain Due to its token-level MaxSim mechanism, ColBERT models are able to generalize to long-context without any specific training Bergum (2024). We directly evaluate the best checkpoints from Section 3.1.2 without any further fine-tuning on MLDR.
+
+3.1.4 Code Retrieval
+
+Fueled by increasingly good code completion models Jiang et al. (2024a), downstream applications have quickly grown in popularity following the emergence of code assistants.10
+10
+Spearheaded by GitHub Copilot in 2021
+ Encoder-only models are used to process and retrieve large quantities of code-related information under resource constraints, increasing the importance of measuring and improving code capabilities of encoder models  Li et al. (2024). Unlike most previous encoders which were largely trained only on textual data Devlin et al. (2019); Liu et al. (2019a); Portes et al. (2023); Zhang et al. (2024); Nussbaum et al. (2024), ModernBERT is pre-trained on code and uses a code-aware tokenizer11
+11
+Avoiding issues such as the ones seen in T5 Raffel et al. (2020), whose vocabulary did not include curly braces.
+.
+
+To measure programming-related performance, we evaluate all models on CodeSearchNet Husain et al. (2019), a code-to-text benchmark where the model must identify relevant docstring or comments for code blocks, and StackOverflow-QA Li et al. (2024), where the model must identify relevant responses to StackOverflow questions, in a "hybrid" setting where documents contain both text and code. The latter benchmark also leverages long-context capabilities, as its queries and documents respectively contain 1,400 and 1,200 words on average, leading to average token counts of over 2000.
+
+We evaluate these benchmarks using the CoIR (CodeIR) framework Li et al. (2024), as single-vector retrieval tasks. All models are trained by re-using the best hyper-parameters identified in Section 3.1.2.
+
+Short	Long
+Model	Params	BS	Fixed	Variable	BS	Fixed	Variable
+Base
+ 	BERT	110M	1096	180.4	90.2	–	–	–
+RoBERTa	125M	664	179.9	89.9	–	–	–
+DeBERTaV3	183M	236	70.2	35.1	–	–	–
+NomicBERT	137M	588	117.1	58.5	36	46.1	23.1
+GTE-en-MLM	137M	640	123.7	61.8	38	46.8	23.4
+GTE-en-MLMxformers 	137M	640	122.5	128.6	38	47.5	67.3
+ModernBERT	149M	1604	148.1	147.3	98	123.7	133.8
+Large
+ 	BERT	330M	792	54.4	27.2	–	–	–
+RoBERTa	355M	460	42.0	21.0	–	–	–
+DeBERTaV3	434M	134	24.6	12.3	–	–	–
+GTE-en-MLM	435M	472	38.7	19.3	28	16.2	8.1
+GTE-en-MLMxformers 	435M	472	38.5	40.4	28	16.5	22.8
+ModernBERT	395M	770	52.3	52.9	48	46.8	49.8
+Table 2: Memory (max batch size, BS) and Inference (in thousands of tokens per second) efficiency results on an NVIDIA RTX 4090, averaged over 10 runs. Dashes indicate unsupported configurations.
+3.2 Downstream Results and Discussion
+
+Aggregated results for all evaluations are presented in Table 1. For BEIR and GLUE, the two common evaluation suites, we follow existing practice in reporting the average results. Detailed results are provided in Appendix E.
+
+In terms of downstream performance, ModernBERT is the strongest overall model at both the base and large model sizes. ModernBERT represents a Pareto improvement on all tasks over the original BERT and RoBERTA models, with better performance on every evaluation category.
+
+Short-Context Retrieval On BEIR, both variants of ModernBERT outperform existing encoders in both the DPR and ColBERT settings, including the recent GTE-en-MLM and NomicBERT models designed to serve as better backbones for retrieval Zhang et al. (2024); Nussbaum et al. (2024).
+
+While ModernBERT-base only narrowly edges out GTE-en-MLM-base on DPR evaluations, ModernBERT-large increases its lead despite having comparatively fewer parameters at 395M to GTE-en-MLM-large’s 435M.
+
+Long-Context Retrieval - Single Vector In the DPR setting, ModernBERT achieves impressive performance on MLDR, a long-context text retrieval task. However, these results also highlight an interesting phenomenon: without long-context finetuning ModernBERT outperforms both shorter-context models and the long-context NomicBERT but performs noticeably worse than GTE-en-MLM. The performance gap narrows considerably when evaluated in-domain, with both models performing similarly. This suggests that ModernBERT can effectively process long context sequences as a dense encoder but may require more adapted tuning. We plan to explore multiple potential explanations for this phenomenon in future work, including the impact of local attention or GTE-en-MLM having spent a larger part of its pretraining compute budget on longer sequence lengths Zhang et al. (2024).
+
+Long-Context Retrieval - Multi-Vector In the ColBERT setting, long-context models (GTE-en-MLM, NomicBERT, and ModernBERT) all outperform short-context models by at least 40 NDCG@10 points without requiring any specific finetuning. These results confirm the findings of  Bergum (2024), who showed that ColBERT models are particularly well-suited to long-context retrieval tasks. Among the long-context models, ModernBERT outperforms other long-context models, with at least a 9 NDCG@10 point lead on both model sizes. We theorize that these sizable gains could be explained by our long pretraining ensuring few, if any, tokens are under-trained, as well as a potentially synergistic effect of local attention with ColBERT-style retrieval, but leave further exploration of this phenomenon to future work.
+
+Natural Language Understanding Both ModernBERT models demonstrate exceptional NLU results, as measured by GLUE. ModernBERT-base surpasses all existing base models, including DeBERTaV3-base, becoming the first MLM-trained model to do so. This is surprising, as DeBERTaV3 was trained with the Replaced-Token-Detection objective, which was previously thought to yield stronger downstream NLU performance Clark et al. (2020); He et al. (2023). ModernBERT-large is the second-best large encoder on GLUE, almost matching DeBERTaV3-large with one-tenth fewer parameters while processing tokens in half the time (see Section 4).
+
+Code On programming tasks, in both code-to-text (CodeSearchNet) and longer-context hybrid settings (StackQA), ModernBERT outperforms all other models. This result was expected, as it is the only evaluated encoder to be trained on a data mixture including programming data. These results, combined with ModernBERT’s strong showings on other tasks, indicates that ModernBERT has improved understanding of code at no detriment to its ability to process natural text.
+
+4 Efficiency
+
+4.1 Evaluation Setting
+
+To measure inference efficiency across multiple sequence lengths, we create 4 synthetic sets of 8192 documents12
+12
+Many common benchmarks are biased towards low and uniform sequence lengths, which is unrepresentative of many real-world situations.
+. The first two document sets are fixed-length: in fixed short-context, all documents contain 512 tokens and in fixed long-context all documents contain 8192 tokens13
+13
+512 being the maximum length of most existing encoders, while 8192 is the maximum length of all long-context ones.
+. To account for the impact of unpadding, we also create two varying-length document sets, where the number of tokens in each set are defined by a normal distribution centered on half the maximum sequence length, 256 and 4096 tokens, respectively. Full data statistics are provided in Appendix F.
+
+We then evaluate all models based on the number of tokens they can process per second, averaged over ten runs. All efficiency evaluations are ran on a single NVIDIA RTX 4090, one of the target GPUs of ModernBERT outlined in Section 2.1.3 We evaluate the GTE-en-MLM models under two settings: out-of-the box, and with the use of the xformers Lefaudeux et al. (2022) library, which enables efficiency enhancements such as unpadding.
+
+4.2 Results
+
+All tokens-per-second efficiency results are presented in Table 2, with absolute run-times provided in Appendix F. ModernBERT stands out as the most efficient model overall. On short context, it processes fixed-length 512 token inputs faster than all other recent encoders, although slower than the original BERT and RoBERTa models14
+14
+This is partially due to the relatively low parameter count of BERT and RoBERTa compared to more recent encoders.
+. On long-context, ModernBERT is faster than all competing encoders, processing documents 2.65 and 3 times faster than the next-fastest encoder at the base and large sizes, respectively. ModernBERT-large’s processing speed at length 8192 (46,801 tokens per second) is closer to that of GTE-en-MLM base (47,507 tokens per second) than it is to GTE-en-MLM-large (16,532 tokens per second).
+
+On variable-length inputs, both GTE-en-MLM and ModernBERT models are considerably faster than all other models, largely due to unpadding. However, ModernBERT remains noticeably more efficient than GTE-en-MLM, processing 14.5-30.9 percent more tokens per second at low context lengths and 98.8-118.8 percent more at longer context lengths, thanks to its use of local attention.
+
+ModernBERT is the overall most memory efficient model on both model sizes. ModernBERT-base is able to process batch sizes twice as large as every other model on both input lengths. ModernBERT-large is slightly less memory efficient than the original BERT-large on short-context inputs, but can process batches at least 60 percent bigger than every other large model.
+
+5 Conclusion
+
+We present ModernBERT, an open family of encoder-only models which set a new state of the art over existing encoder models on a wide range of classification and retrieval tasks. We show that encoders benefit from both recent pretraining data scales and architecture improvements from autoregressive LLMs.
+
+ModernBERT has a native sequence length of 8,192 tokens and incorporates recent architecture improvements, such as GeGLU layers, RoPE positional embeddings, and alternating local-global attention. ModernBERT is the first open model to feature entire model unpadding and is the first encoder designed in a hardware-aware way to maximize inference efficiency.
+
+ModernBERT pushes the encoder state of the art forward across a wide range of benchmarks. On GLUE, ModernBERT-base is the first encoder to beat DeBERTaV3-base since its release in 2021. ModernBERT is in a class of its own in code and ColBERT-style long-context retrieval benchmarks, scoring at least 6.85 and 9.1 percentage points higher than the closest model, respectively, while remaining state-of-the-art on short-context retrieval in both single and multi-vector settings.
+
+At the same time, ModernBERT processes short context inputs twice as fast as DeBERTaV3 and long-context inputs two times faster than the next fastest model with best-in-class memory efficiency.
+
+ModernBERT is a generational leap over the original encoder models, with notable performance improvements over BERT and RoBERTa on both classification and retrieval tasks. ModernBERT is one of the few encoders to support long-context and programming applications, while simultaneously setting a new record in encoder inference efficiency.
+
+6 Limitations
+
+Language This study focuses exclusively on the English language, and trains on a very large number of tokens. As such, a major limitation of our work is that it is not directly applicable to other languages, and potentially even less-so to lower resources languages.
+
+Biases Our model is trained largely on web data, as a result, all of its representations are subject to the biases present in such data.
+
+Harmful Content Generation The MLM objective gives the model some ability to generate text by suggesting a given token to replace the [MASK] token Samuel (2024), which could result in the generation of harmful content. However, ModernBERT is not, primarily, a generative model, and as such, has not been trained to and therefore cannot generate longer sequences of text. As a result, it is considerably less likely to be at risk of generating harmful content of any kind.
+
+MLM-only objective Given the strong results of DeBERTav3 on classification tasks but weak ones on retrieval, it seems that a training leveraging both MLM and RTD might be better suited to achieve best results on classification. Extending our work to RTD is thus a promising line of research.
+
+Scaling Besides the architectural modifications, a key aspect of our studies is data scaling. However, other scaling axes, notably in terms of model parameters are left unexplored.

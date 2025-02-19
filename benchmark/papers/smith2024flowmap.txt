@@ -1,0 +1,540 @@
+FlowMap: High-Quality Camera Poses, Intrinsics, and Depth via Gradient Descent
+
+Cameron Smith
+David Charatan
+
+Ayush Tewari
+Vincent Sitzmann
+Abstract
+
+This paper introduces FlowMap, an end-to-end differentiable method that solves for precise camera poses, camera intrinsics, and per-frame dense depth of a video sequence. Our method performs per-video gradient-descent minimization of a simple least-squares objective that compares the optical flow induced by depth, intrinsics, and poses against correspondences obtained via off-the-shelf optical flow and point tracking. Alongside the use of point tracks to encourage long-term geometric consistency, we introduce differentiable re-parameterizations of depth, intrinsics, and pose that are amenable to first-order optimization. We empirically show that camera parameters and dense depth recovered by our method enable photo-realistic novel view synthesis on 
+360
+∘
+ trajectories using Gaussian Splatting. Our method not only far outperforms prior gradient-descent based bundle adjustment methods, but surprisingly performs on par with COLMAP, the state-of-the-art SfM method, on the downstream task of 
+360
+∘
+ novel view synthesis—even though our method is purely gradient-descent based, fully differentiable, and presents a complete departure from conventional SfM.
+
+1 Introduction
+
+Reconstructing a 3D scene from video is one of the most fundamental problems in vision and has been studied for over five decades. Today, essentially all state-of-the-art approaches are built on top of Structure-from-Motion (SfM) methods like COLMAP [58]. These approaches extract sparse correspondences across frames, match them, discard outliers, and then optimize the correspondences’ 3D positions alongside the camera parameters by minimizing reprojection error [58].
+
+This framework has delivered excellent results which underlie many present-day vision applications, and so it is unsurprising that SfM systems have remained largely unchanged in the age of deep learning, save for deep-learning-based correspondence matching [55, 36, 57, 16].
+
+However, conventional SfM has a major limitation: it is not differentiable with respect to its free variables (camera poses, camera intrinsics, and per-pixel depths). This means that SfM acts as an isolated pre-processing step that cannot be embedded into end-to-end deep learning pipelines. A differentiable, self-supervised SfM method would enable neural networks to be trained self-supervised on internet-scale data for a broad class of multi-view geometry problems. This would pave the way for deep-learning based 3D reconstruction and scene understanding.
+
+Refer to caption
+Figure 1:  We present FlowMap, an end-to-end differentiable method that recovers poses, intrinsics, and depth maps of an input video. FlowMap is supervised only with off-the-shelf optical flow and point track correspondences, and optimized per-scene with gradient descent. Gaussian Splats obtained from FlowMap’s reconstructions regularly match or exceed those obtained from COLMAP in quality.
+In this paper, we present FlowMap, a differentiable and surprisingly simple camera and geometry estimation method whose outputs enable photorealistic novel view synthesis. FlowMap directly minimizes the difference between optical flow that is induced by a camera moving through a static 3D scene and pre-computed correspondences in the form of off-the-shelf point tracks and optical flow. Since FlowMap is end-to-end differentiable, it can naturally be embedded in any deep learning pipeline. Its loss is minimized only via gradient descent, leading to high-quality camera poses, camera intrinsics, and per-pixel depth. Unlike conventional SfM, which outputs sparse 3D points that are each constrained by several views, FlowMap outputs dense per-frame depth estimates. This is a critical advantage in downstream novel view synthesis and robotics tasks. Unlike prior attempts at gradient-based optimization of cameras and 3D geometry [35, 73, 2], we do not treat depth, intrinsics, and camera poses as free variables. Rather, we introduce differentiable feed-forward estimates of each one: depth is parameterized via a neural network, pose is parameterized as the solution to a least-squares problem involving depth and flow, and camera intrinsics are parameterized using a differentiable selection based on optical flow consistency. In other words, FlowMap solves SfM by learning the depth network’s parameters; camera poses and intrinsics are computed via analytical feed-forward modules without free parameters of their own. We show that this uniquely enables high-quality SfM via gradient descent while making FlowMap compatible with standard deep-learning pipelines. Unlike recent radiance-field bundle-adjustment baselines [2, 35], FlowMap does not use differentiable volume rendering, and so it is significantly faster to run, generally reconstructing an object-centric 
+360
+∘
+ scan in less than 10 minutes.
+
+Through extensive ablation studies, we show that each of FlowMap’s design choices is necessary. On popular, real-world novel view synthesis datasets (Tanks & Temples, Mip-NeRF 360, CO3D, and LLFF), we demonstrate that FlowMap enables photo-realistic novel view synthesis up to full 
+360
+∘
+ trajectories using Gaussian Splatting [29]. Gaussian Splats obtained from FlowMap reconstructions far outperform the state-of-the-art gradient-based bundle-adjustment method, NoPe-NeRF [2], and those obtained using the SLAM algorithm DROID-SLAM [67], even though both baselines require ground-truth intrinsics. Gaussian Splats obtained from FlowMap are on par with those obtained from COLMAP [58], even though FlowMap only leverages gradient descent, is fully differentiable, and represents a complete departure from conventional SfM techniques.
+
+2 Related Work
+
+2.0.1 Conventional Structure-from-Motion (SfM) and SLAM.
+
+Modern SfM methods perform offline optimization using a multi-stage process of descriptor extraction, correspondence estimation, and subsequent incremental bundle adjustment. In bundle adjustment, corresponding 2D pixels are coalesced into single 3D points, and estimated camera parameters are optimized alongside these points’ 3D positions to minimize 3D-to-2D reprojection error. COLMAP [58] is the de-facto standard for accurate, offline camera parameter estimation. Meanwhile, simultaneous localization and mapping (SLAM) usually refers to real-time, online methods. These generally assume that the camera’s intrinsic parameters are known. Similar to SfM, SLAM usually relies on minimizing reprojection error [47, 48, 5, 54], but some methods investigate direct minimization of a photometric error [20, 19]. While deep learning has not fundamentally transformed SfM and SLAM, it has been leveraged for correspondence prediction [12, 45, 40, 50], either via graph neural networks [55] or via particle tracking [84, 25, 17].
+
+FlowMap is a departure from conventional SfM and SLAM techniques. While we rely on correspondence from optical flow and particle tracking, we do not coalesce sets of 2D correspondences into single 3D points. Instead, we use per-frame depth estimates as our geometry representation. Additionally, rather than relying on conventional correspondence matching and RANSAC filtering, we leverage neural point tracking [27] and optical flow estimators [66] to establish correspondence, jointly enabling dense geometry reconstruction without a seperate multi-view stereo stage. Finally, FlowMap is end-to-end differentiable and introduces feed-forward estimators of depth, poses, and intrinsics, making it compatible with other learned methods.
+
+2.0.2 Deep-Learning Based SfM.
+
+Prior work has attempted to embed the full SLAM pipeline into a deep learning framework [64, 14, 85, 13, 69, 37, 65, 72, 3], usually by training black-box neural networks to directly output camera poses. However, these methods are constrained to short videos of 5 to 10 frames and are not competitive with conventional SLAM and SfM for real-world 3D reconstruction. Bowen et al.[4] elegantly leverage optical flow supervision for self-supervised monocular depth prediction. More recently, DROID-SLAM [67] has yielded high-quality camera poses and depth. However, it requires known intrinsics, is trained fully supervised with ground-truth camera poses, and fails to approach COLMAP on in-the-wild performance and robustness. Concurrent work to FlowMap explores an end-to-differentiable, point-tracking-based SfM framework [70]. Key differences are that their method is fully supervised with camera poses, point clouds, and intrinsics; requires large-scale, multi-stage training; solves only for sparse depth; and is built around the philosophy of making each part of the conventional SfM pipeline differentiable. Our method is a complete departure from the conventional SfM pipeline—it does not require a training set of known intrinsics, ground-truth poses, or 3D points, and it provides quality gradients for dense depth, poses, and intrinsics. Critically, FlowMap is the first gradient-descent based method to rival the performance of conventional SfM on the novel view synthesis task. Zhang et al. [83] and Kopf ef al. [32] demonstrate gradient-descent based optimization of camera parameters with a similar flow-based reprojection supervision, with a focus on dynamic scenes. However, these methods optimize camera parameters as free variables and depend on pre-trained monocular depth estimators. In constrast, our feed-forward parameterization uniquely enables gradients for large-scale training and we demonstrate that our gradients can be used to train a depth estimator.
+
+2.0.3 Novel View Synthesis via Differentiable Rendering.
+
+Advances in differentiable rendering have enabled photo-realistic novel view synthesis and fine-grained geometry reconstruction using camera poses and intrinsics obtained via SfM [44, 34, 46, 59, 60, 49]. 3D Gaussian Splatting [29] goes further, directly leveraging the 3D points provided by SfM as an initialization. It follows previous methods like [15], which used 3D geometry from depth to supervise neural radiance field (NeRF) reconstructions. We show that when initializing Gaussian Splatting with poses, intrinsics, and 3D points from FlowMap, we generally perform on par with conventional SfM and sometimes even outperform it.
+
+2.0.4 Camera Pose Optimization via Differentiable Rendering.
+
+A recent line of work in bundle-adjusting radiance fields [35, 2, 82, 28, 26, 21, 76, 22, 80, 77, 74, 10, 9] attempts to jointly optimize unknown camera poses and radiance fields. Several of these methods  [26, 79, 24] additionally solve for camera intrinsic parameters. However, these methods only succeed when given forward-facing scenes or roughly correct pose initializations. More recent work incorporates optical flow and monocular depth priors [2, 42, 38] but requires known intrinsics and only works robustly on forward-facing scenes. Concurrent work [22] accelerates optimization compared to earlier NeRF-based approaches. Unlike ours, this approach requires known intrinsics and a pre-trained monocular depth estimator, and minimizes a volume-rendering-based photometric loss instead of the proposed correspondence-based approach. Further concurrent work proposes real-time SLAM via gradient descent on 3D Gaussians [41], but requires known intrinsics and does not show robustness on a variety of real-world scenes. In contrast, our method is robust and easily succeeds on object-centric scenes where the camera trajectory covers a full 
+360
+∘
+ of rotation, yielding photo-realistic novel view synthesis when combined with Gaussian Splatting.
+
+2.0.5 Learning Priors over Optimization of NeRF and Poses.
+
+Our method is inspired by recent methods which learn priors over pose estimation and 3D radiance fields [8, 33, 61, 23]. However, these approaches require known camera intrinsics, are constrained to scenes with simple motion, and do not approach the accuracy of conventional SfM. Like our method, FlowCam [61] uses a pose-induced flow loss and a least-squares solver for camera pose. However, our method has several key differences: we estimate camera intrinsics, enabling optimization on any raw video; we replace 3D rendering with a simple depth estimator, which reduces training costs and allows us to reuse pre-trained depth estimators; and we introduce point tracks for supervision to improve global consistency and reduce drift. FlowCam did not approach conventional SfM’s accuracy on real sequences. We demonstrate that optimizing the pose-induced flow objective on a single scene, akin to a test-time optimization, yields pose and geometry estimates which, for the first time, approach COLMAP on full 
+360
+∘
+ sequences.
+
+Refer to caption
+Figure 2: A FlowMap Forward Pass. Given RGB frames (red), optical flow (blue) and point tracks (green), FlowMap computes dense depth 
+𝐃
+, camera poses P, and intrinsics 
+𝐊
+ in each forward pass. We obtain depth via a CNN (Sec. 4) and implement differentiable, feed-forward solvers for intrinsics and poses (Sec. 4, Fig.4). Colored dots indicate which block receives which inputs. FlowMap’s only free parameters are the weights of a depth NN and a small correspondence confidence MLP. These parameters are optimized for each video separately by minimizing a camera-induced flow loss (Fig. 3) via gradient descent, though fully feed-forward operation is possible.
+3 Supervision via Camera-Induced Scene Flow
+
+Given a video sequence, our goal is to supervise per-frame estimates of depth, intrinsics, and pose using known correspondences. Our method hinges upon the fact that a camera moving through a static scene induces optical flow in image space. Such optical flow can be computed differentiably from any two images’ estimated depths, intrinsics, and relative pose to yield a set of implied pixel-wise correspondences. These correspondences can then by compared to their known counterparts to yield supervision on the underlying estimates.
+
+Consider a 2D pixel at coordinate 
+𝐮
+i
+∈
+ℝ
+2
+ in frame 
+i
+ of the video sequence. Using frame 
+i
+’s estimated depth 
+𝐃
+i
+ and intrinsics 
+𝐊
+i
+, we can compute the pixel’s 3D location 
+𝐱
+i
+∈
+ℝ
+3
+. Then, using the estimated relative pose 
+P
+i
+⁢
+j
+ between frames 
+i
+and 
+j
+, we can transform this location into frame 
+j
+’s camera space. Finally, we can project the resulting point 
+P
+i
+⁢
+j
+⁢
+𝐱
+i
+ onto frame 
+j
+’s image plane to yield an implied correspondence 
+𝐮
+^
+i
+⁢
+j
+. This correspondence can be compared to the known correspondence 
+𝐮
+i
+⁢
+j
+ to yield a loss 
+ℒ
+, as illustrated in Fig. 3.
+
+ℒ
+=
+‖
+𝐮
+^
+i
+⁢
+j
+−
+𝐮
+i
+⁢
+j
+‖
+(1)
+3.0.1 Supervision via Dense Optical Flow and Sparse Point Tracks.
+
+Our known correspondences are derived from two sources: dense optical flow between adjacent frames and sparse point tracks which span longer windows. Frame-to-frame optical flow ensures that depth is densely supervised, while point tracks minimize drift over time. We compute correspondences from optical flow 
+𝐅
+i
+⁢
+j
+ via 
+𝐮
+i
+⁢
+j
+=
+𝐮
+i
++
+𝐅
+i
+⁢
+j
+⁢
+[
+𝐮
+i
+]
+. Meanwhile, given a query point 
+𝐮
+i
+, an off-the-shelf point tracker directly provides a correspondence 
+𝐮
+i
+⁢
+j
+ for any frame 
+j
+ where one exists.
+
+Refer to caption
+Figure 3: Camera-Induced Flow Loss. To use a known correspondence 
+𝐮
+i
+⁢
+j
+ to compute a loss 
+ℒ
+, we unproject 
+𝐮
+i
+ using the corresponding depth map 
+𝐃
+i
+ and camera intrinsics 
+K
+i
+, transform the resulting point 
+𝐱
+i
+ via the relative pose 
+𝐏
+i
+⁢
+j
+, reproject the transformed point to yield 
+𝐮
+^
+i
+⁢
+j
+, and finally compute 
+ℒ
+=
+‖
+𝐮
+^
+i
+⁢
+j
+−
+𝐮
+i
+⁢
+j
+‖
+.
+3.0.2 Baseline: Pose, Depth and Intrinsics as Free Variables.
+
+Assuming one uses standard gradient descent optimization, one must decide how to parameterize the estimated depths, intrinsics, and poses. The simplest choice is to parameterize them as free variables, i.e., to define learnable per-camera intrinsics and extrinsics alongside per-pixel depths. However, this approach empirically fails to converge to good poses and geometry, as shown in Sec. 7.
+
+4 Parameterizing Depth, Pose, and Camera Intrinsics
+
+In this section, we present FlowMap’s feed-forward re-parameterization of depth, pose, and camera intrinsics, which uniquely enables high-quality results when using gradient descent. Later, in Sec. 7, we ablate these parameterizations to demonstrate that they lead to dramatic improvements in accuracy.
+
+4.0.1 Depth Network.
+
+If each pixel’s depth were optimized freely, two identical or very similar image patches could map to entirely different depths. We instead parameterize depth as a neural network that maps an RGB frame to the corresponding per-pixel depth. This ensures that similar patches have similar depths, allowing FlowMap to integrate geometry cues across frames: if a patch receives a depth gradient from one frame, the weights of the depth network are updated, and hence the depths of all similar video frame patches are also updated. As a result, FlowMap can provide high-quality depths even for patches which are poorly constrained due to errors in the input flows and point tracks, imperceptibly small motion, or degenerate (rotation-only) motion.
+
+4.0.2 Pose as a Function of Depth, Intrinsics and Optical Flow.
+
+Refer to caption
+Figure 4: We solve for the relative poses between consecutive frames using their depth maps, camera intrinsics, and optical flow. To do so, we first unproject their depth maps, then solve for the pose that best aligns the resulting point clouds.
+Suppose that for two consecutive frames, optical flow, per-pixel depths, and camera intrinsics are known. In this case, the relative pose between these frames can be computed differentiably in closed form. Following the approach proposed in FlowCam [61], we solve for the relative pose that best aligns each consecutive pair of un-projected depth maps. We then compose the resulting relative poses to produce absolute poses in a common coordinate system.
+
+More formally, we cast depth map alignment as an orthogonal Procrustes problem, allowing us to draw upon this problem’s differentiable, closed-form solution [11]. We begin by unprojecting the depth maps 
+𝐃
+i
+ and 
+𝐃
+j
+ using their respective intrinsics 
+𝐊
+i
+ and 
+𝐊
+j
+ to generate two point clouds 
+𝐗
+i
+ and 
+𝐗
+j
+. Next, because the Procrustes formulation requires correspondence between points, we use the known optical flow between frames 
+i
+ and 
+j
+ to match points in 
+𝐗
+i
+ and 
+𝐗
+j
+. This yields 
+𝐗
+i
+↔
+ and 
+𝐗
+j
+↔
+, two filtered point clouds for which a one-to-one correspondence exists. The Procrustes formulation seeks the rigid transformation that minimizes the total distance between the matched points:
+
+P
+i
+⁢
+j
+=
+arg
+⁢
+min
+P
+∈
+SE
+⁢
+(
+3
+)
+⁢
+‖
+𝒲
+1
+/
+2
+⁢
+(
+𝐗
+j
+↔
+−
+P
+⁢
+𝐗
+i
+↔
+)
+‖
+2
+2
+(2)
+The diagonal matrix 
+𝒲
+ contains correspondence weights that can down-weight correspondences that are faulty due to occlusion or imprecise flow. This weighted least-squares problem can be solved in closed form via a single singular value decomposition [11, 61] which is both cheap and fully differentiable. We further follow FlowCam [61] and predict these weights by concatenating corresponding per-pixel features and feeding them into a small MLP. This MLP’s parameters are the only other free variables of our model. For an overview of the depth map alignment process, see Fig. 4.
+
+4.0.3 Camera Focal Length as a Function of Depth and Optical Flow.
+
+We solve for camera intrinsics by considering a set of reasonable candidates 
+𝐊
+k
+, then softly selecting among them. For each candidate, we use our pose solver Eq. 2 to compute a corresponding set of poses, then use the camera-induced flow loss Eq. 1 to compute the loss 
+ℒ
+k
+ implied by 
+𝐊
+k
+ and these poses. Finally, we compute the resulting intrinsics 
+𝐊
+ via a softmin-weighted sum of the candidates:
+
+𝐊
+=
+∑
+k
+w
+k
+⁢
+𝐊
+k
+w
+k
+=
+exp
+⁡
+(
+−
+ℒ
+k
+)
+∑
+l
+exp
+⁡
+(
+−
+ℒ
+l
+)
+(3)
+To make this approach computationally efficient, we make several simplifying assumptions. First, we assume that the intrinsics can be represented via a single 
+𝐊
+ that is shared across frames. Second, we assume that 
+𝐊
+ can be modeled via a single focal length with a principal point fixed at the image center. Finally, we only compute the soft selection losses on the first two frames of the sequence.
+
+4.0.4 Depth as the Only Free Variable in SfM.
+
+FlowMap offers a surprising insight: Given correspondence, SfM can be formulated as solving for per-frame depth maps. FlowMap yields poses and intrinsics in a parameter-free, differentiable forward pass when given correspondences and depths. This means that better initializations of FlowMap’s depth estimator (e.g., from pre-training) will yield more accurate camera parameters (see Fig. 10).
+
+Refer to caption
+Figure 5: View Synthesis Results. FlowMap’s camera parameters and geometry produce near-photorealistic 3D Gaussian Splatting results on par with COLMAP’s.
+5 Implementation and Optimization Details
+
+FlowMap is optimized on each specific scene, achieving convergence between 500 and 5,000 steps using the Adam [30] optimizer. Though per-scene optimization is key to achieving high accuracy, we find that exploiting FlowMap’s feed-forward nature for pre-training yields an initialization that leads to improved convergence and accuracy, as shown in Fig. 10. During per-scene optimization, we use RAFT [66] and CoTracker V1 [27] to compute the optical flow and point tracks that FlowMap uses as input. During pre-training, in order to minimize the time spent computing correspondences, we do not use point tracks and use GMFlow [78] to compute optical flow instead of RAFT.
+
+5.0.1 Focal Length Regression.
+
+While our soft selection approach robustly yields near-correct focal lengths, its performance is slightly worse compared to well-initialized direct regression. We therefore switch to focal length regression after 1,000 steps, using our softly selected focal length as initialization.
+
+5.0.2 Memory and Time Requirements.
+
+FlowMap’s complexity in time and memory is linear with the number of input video frames. During each optimization step, FlowMap recomputes depth for each frame, then derives poses and intrinsics from these depths to generate gradients. In practice, FlowMap optimization for a 150-frame video takes about 20 minutes, with a peak memory usage of about 36 GB. Precomputing point tracks and optical flow takes approximately 2 minutes. Note that FlowMap’s runtime could be reduced by early stopping, and its memory usage could be reduced by performing backpropagation on video subsets during each step, but we leave these optimizations to future work.
+
+5.0.3 Sequence Length and Drift.
+
+Since adjacent frames in typical 30 FPS videos usually contain redundant information, we run FlowMap on subsampled videos. We perform subsampling by computing optical flow on the whole video, then selecting frames so as to distribute the overall optical flow between them as evenly as possible. With this strategy, we find that an object-centric, full 
+360
+∘
+trajectory as is common in novel view synthesis papers is covered by about 
+90
+ frames. We note that FlowMap does not have a loop closure mechanism. Rather, point tracks provide long-range correspondences that prevent the accumulation of drift in long sequences.
+
+MipNeRF 360 (3 scenes)	LLFF (7 scenes)	Method	PSNR 
+↑
+SSIM 
+↑
+LPIPS 
+↓
+Time (min.) 
+↓
+ATE	PSNR 
+↑
+SSIM 
+↑
+LPIPS 
+↓
+Time (min.) 
+↓
+ATE	FlowMap	29.84	0.916	0.073	19.8	0.00055	27.23	0.849	0.079	7.5	0.00209	COLMAP	29.95	0.928	0.074	4.8	N/A	25.73	0.851	0.098	1.1	N/A	COLMAP (MVS)	31.03	0.938	0.060	42.5	N/A	27.99	0.867	0.072	13.4	N/A	DROID-SLAM*	29.83	0.913	0.066	0.6	0.00017	26.21	0.818	0.094	0.3	0.00074	NoPE-NeRF*	13.60	0.377	0.750	1913.1	0.04429	17.35	0.490	0.591	1804.0	0.03920		Tanks & Temples (14 scenes)	CO3D (2 scenes)	Method	PSNR 
+↑
+SSIM 
+↑
+LPIPS 
+↓
+Time (min.) 
+↓
+ATE	PSNR 
+↑
+SSIM 
+↑
+LPIPS 
+↓
+Time (min.) 
+↓
+ATE	FlowMap	27.00	0.854	0.101	22.3	0.00124	31.11	0.896	0.064	22.1	0.01589	COLMAP	26.74	0.848	0.130	5.5	N/A	25.17	0.750	0.190	12.6	N/A	COLMAP (MVS)	27.43	0.863	0.097	51.4	N/A	25.35	0.762	0.175	52.0	N/A	DROID-SLAM*	25.70	0.824	0.133	0.8	0.00122	25.97	0.790	0.139	0.8	0.01728	NoPE-NeRF*	13.38	0.449	0.706	2432.9	0.03709	14.97	0.400	0.770	2604.9	0.03648 
+Table 1: Camera parameter and geometry intializations from FlowMap produce 3D Gaussian reconstruction results that far outperform prior gradient-based baselines and are generally on par with those produced by COLMAP. Methods marked with an asterisk require ground-truth intrinsics. We report ATE with respect to COLMAP’s pose estimates for reference, since no ground-truth trajectories exist for common view synthesis datasets. We exclude scenes where COLMAP or FlowMap fail entirely; each fails on 4 scenes. See the supplementary document for more details.
+Refer to caption
+Figure 6: Qualitative Pose Estimation Comparison. FlowMap (solid red) recovers camera poses that are very close to those of COLMAP (dotted black).
+Refer to caption
+Figure 7: Point Clouds Reconstructed by FlowMap. Unprojecting FlowMap depths using FlowMap’s intrinsics and poses yields dense and consistent point clouds.
+6 Results
+
+We benchmark FlowMap via the downstream task of 3D Gaussian reconstruction [29]. This allows us to measure the quality of the camera parameters and geometry (depth maps) it outputs without having access to ground-truth scene geometry and camera parameters.
+
+6.0.1 Baselines.
+
+We benchmark FlowMap against several baselines. First, we evaluate against COLMAP [58], the state-of-the-art structure-from-motion (SfM) method. Given a collection of images, COLMAP outputs per-image camera poses and intrinsics alongside a sparse 3D point cloud of the underlying scene. 3D Gaussian Splatting, which was designed around COLMAP’s SfM outputs, is initialized using this point cloud. Second, we evaluate against COLMAP multi-view stereo (MVS), which enhances COLMAP’s output with a much denser 3D point cloud. When initialized using this denser point cloud, 3D Gaussian Splatting produces slightly better results. However, note that COLMAP MVS is rarely used in practice because it can be prohibitively time-consuming to run. Third, we evaluate against DROID-SLAM, a neural SLAM system trained on a synthetic dataset of posed video trajectories. Finally, we evaluate against NoPE-NeRF, an method that jointly optimizes a neural radiance field and unknown camera poses. Note that unlike FlowMap and COLMAP, both DROID-SLAM and NoPE-NeRF require camera intrinsics as input.
+
+6.0.2 Datasets.
+
+We analyze FlowMap on four standard novel view synthesis datasets: MipNeRF-360 [1], Tanks & Temples [31], LLFF [43], and CO3D [53]. Because FlowMap runs on video sequences, we restrict these datasets to just the video-like sequences they provide.
+
+6.0.3 Methodology.
+
+We run FlowMap and the baselines using images that have been rescaled to a resolution of about 700,000 pixels. We then optimize 3D Gaussian scenes for all methods except NoPE-NeRF, since it provides its own NeRF renderings. We use 90% of the available views for training and 10% for testing. During 3D Gaussian fitting, we follow the common [63] practice of fine-tuning the initial camera poses and intrinsics. Such refinement is beneficial because the camera poses produced by SfM algorithms like COLMAP are generally not pixel-perfect [51, 35]. We use the 3D points provided by COLMAP, DROID-SLAM, and FlowMap as input to 3D Gaussian Splatting. For FlowMap, we combine the output depth maps, poses, and intrinsics to yield one point per depth map pixel.
+
+6.1 Novel View Synthesis Results
+
+Tab. 1 reports rendering quality metrics (PSNR, SSIM, and LPIPS) on the held-out test views, and Fig. 5 shows qualitative results. Qualitatively, FlowMap facilitates high-quality 3D reconstructions with sharp details. Quantitatively, FlowMap performs slightly better than COLMAP SfM and significantly outperforms DROID-SLAM and NoPE-NeRF. Only COLMAP MVS slightly exceeds FlowMap in terms of reconstruction quality. As noted previously, COLMAP MVS is rarely used for 3D Gaussian Splatting, since it is very time-consuming to run on high-resolution images.
+
+6.2 Camera Parameter Estimation Results
+
+Since the datasets we use do not provide ground-truth camera parameters, they cannot be used to directly evaluate camera parameter estimates. Instead, Tab. 1 reports the average trajectory error (ATE) of FlowMap, DROID-SLAM, and NoPe-NeRF with respect to COLMAP. Since COLMAP’s poses are not perfect [51], this comparison is not to be understood as a benchmark, but rather as an indication of how close these methods’ outputs are to COLMAP’s state-of-the-art estimates. We find that DROID-SLAM and FlowMap both recover poses that are close to COLMAP’s, while NoPE-NeRF’s estimated poses are far off. When computing ATEs, we normalize all trajectories such that 
+tr
+⁢
+(
+X
+⁢
+X
+T
+)
+=
+1
+, where 
+X
+ is an 
+n
+-by-3 matrix of camera positions.
+
+Fig. 6 plots trajectories recovered by FlowMap against those recovered by COLMAP, showing that they are often nearly identical. Fig. 7 shows point clouds derived from FlowMap’s estimated depth maps and camera parameters, illustrating that FlowMap recovers well-aligned scene geometry.
+
+6.3 Large-Scale Robustness Study
+
+Refer to caption
+Figure 8: Large-scale Robustness Study. We run FlowMap and DROID-SLAM on 420 CO3D scenes across 10 categories and plot mean ATEs with respect to CO3D’s COLMAP-generated pose metadata. We also re-run COLMAP on the same data. Compared to DROID-SLAM, which requires ground-truth intrinsics, FlowMap produces notably lower ATEs. FlowMap’s ATE distribution is similar to one obtained by re-running COLMAP, with most ATEs falling under 0.005 in both cases.
+We study FlowMap’s robustness by using it to estimate camera poses for 420 CO3D scenes from 10 categories. We compare these trajectories to CO3D’s pose annotations, which were computed using COLMAP. Since the quality of CO3D’s ground-truth trajectories varies between categories, we focus on categories that have been used to train novel view synthesis models [68, 6, 75], where pose accuracy is expected to be higher. We find that FlowMap’s mean ATE (0.0056) is lower than DROID-SLAM’s (0.0082) and similar to the mean ATE obtained by re-running COLMAP and comparing the results to the provided poses (0.0038). This demonstrates that FlowMap consistently estimates poses which are close to COLMAP’s. We note that COLMAP failed to estimate poses for 36 scenes, possibly because we ran it at a sparser frame rate to be consistent with our method or because the original annotations were generated using different COLMAP settings; we exclude COLMAP’s failures from the above mean ATE. See Fig. 8 for distributions of ATE values with respect to CO3D’s provided camera poses.
+
+Refer to caption
+Figure 9:  Ablations. We ablate the proposed feed-forward re-parameterizations of depth, pose, and intrinsics across all datasets. We find that these reparameterizations are not only critical for high-quality downstream 3D Gaussian Splatting, but also lead to dramatically accelerated convergence, where FlowMap generally converges to high quality poses within a fraction of the optimization steps required for the ablated variants. We further find that point tracks lead to a significant boost over optical flow alone (right). See the supplemental document for more ablations.
+7 Ablations and Analysis
+
+We perform ablations to answer the following questions:
+
+• Question 1: Are FlowMap’s reparameterizations of depth, pose, and intrinsics necessary, or do free variables perform equally well?
+• Question 2: Are point tracks critical to FlowMap’s performance?
+• Question 3: Does self-supervised pre-training of the depth estimation and correspondence weight neural networks improve performance?
+7.0.1 Parameterizations of Depth, Pose, and Camera Intrinsics (Q1)
+
+We compare the reparameterizations described in Sec. 4 to direct, free-variable optimization of pose, depth, and intrinsics. Fig. 9 shows qualitative results and quantitative results averaged across 33 scenes. We find that free-variable variants of FlowMap produce significantly worse reconstruction results and converge much more slowly, confirming that FlowMap’s reparameterizations are crucial.
+
+It is worth noting that often, explicitly optimizing a focal length produces high-quality results, as indicated by the relatively high performance of the “Expl. Focal Length” ablation. In fact, given a good initialization, direct focal length regression produces slightly better results than the proposed focal length reparameterization alone on about 80 percent of scenes. However, on about 20 percent of scenes, this approach falls into a local minimum and reconstruction fails catastrophically. This justifies the approach FlowMap uses, where the first 1,000 optimization steps use a reparameterized focal length, which is then used to initialize an explicit focal length used for another 1,000 optimization steps.
+
+We further highlight that FlowMap’s reparameterizations are necessary to estimate poses and intrinsics in a single forward pass, which is crucial for the generalizable (pre-training) setting explored in Q3.
+
+7.0.2 Point Tracking (Q2)
+
+While optical flow is only computed between adjacent frames, point track estimators can accurately track points across many frames. In Fig. 9, we show that FlowMap’s novel view synthesis performance drops moderately when point tracks are disabled. Qualitatively, we find that point tracks reduce drift for longer sequences, such as object-centric 
+360
+∘
+scenes. This suggests that FlowMap will benefit from further improvements in point tracking methods. We note that FlowMap’s loss formulation is compatible with conventional correspondence methods (e.g. SIFT [39] with RANSAC) and learned correspondences [56], which can be treated identically to point tracks. FlowMap could also be extended to use conventional loop closure mechanisms, which would further reduce drift.
+
+7.0.3 Pre-training Depth and Correspondence Networks (Q3)
+
+Refer to caption
+Figure 10: Effects of pretraining. While a randomly initialized FlowMap network often provides accurate poses after optimization, pre-training leads to faster convergence and slightly improved poses. Here we plot depth estimates at specific optimization steps (left) as well as pose accuracy with respect to COLMAP during optimization (right). Randomly initialized FlowMap networks often require more than 20,000 steps to match the accuracy of a pre-trained initialization at 2,000 steps.
+Since FlowMap is differentiable and provides gradients for any depth-estimating neural network, it is compatible with both randomly initialized neural networks and pre-trained priors. Learned priors can come from optimization on many scenes, from existing depth estimation models, or from a combination of the two. In practice, starting with a pre-trained prior leads to significantly faster convergence, as illustrated in Fig. 10. Note that pre-training and generalization are uniquely enabled by the proposed feed-forward reparameterizations of depth, focal length, and poses.
+
+8 Discussion
+
+8.0.1 Limitations.
+
+FlowMap has several limitations that suggest exciting directions for future work. First, FlowMap requires off-the-shelf correspondences from optical flow and point tracking methods. An exciting direction is to remove the dependence on correspondence altogether or to jointly learn correspondence extraction. Second, we mainly analyze FlowMap in the setting of per-scene optimization, where our results demonstrate that the gradients provided by FlowMap’s formulation are robustly lead to high-quality depth and camera parameters. It is natural to attempt to use these gradients to train a feed-forward structure-from-motion method. Lastly, through its dependence on optical flow or point tracks, FlowMap can currently only process continuous video, in contrast to conventional SfM methods which can operate on unstructured image collections. This is a natural assumption for applications in embodied intelligence, navigation, and robotics, but limits applications in computer graphics. Leveraging unstructured correspondences, e.g. via [55], may be used to overcome this limitation.
+
+8.0.2 Relationship to Conventional SfM.
+
+Across many applications of conventional SfM, such as the reconstruction of large, non-continuous image collections, FlowMap cannot serve as a drop-in replacement, and we note that this is not our objective. Rather, we demonstrate that a self-supervised, end-to-end differentiable, feed-forward formulation that can naturally be integrated into neural network vision models surprisingly approaches COLMAP’s performance on the downstream task of novel view synthesis in the context of video data. Here, FlowMap has the potential to make camera pose and depth supervision unnecessary for 3D deep learning, paving the way for training on unannotated, internet-scale video data.
+
+8.0.3 Conclusion.
+
+We have introduced FlowMap, a simple, robust, and scalable first-order method for estimating camera parameters from video. Our model outperforms existing gradient-descent based methods for estimating camera parameters. FlowMap’s depth and camera parameters enable subsequent reconstruction via Gaussian Splatting of comparable quality to COLMAP. FlowMap is written in PyTorch and achieves runtimes of 3 minutes for short sequences and 20 minutes for long sequences, and we anticipate that concerted engineering efforts could accelerate FlowMap by an order of magnitude. Perhaps most excitingly, FlowMap is fully differentiable with respect to per-frame depth estimates. FlowMap can thus serve as a building block for a new generation of self-supervised monocular depth estimators, deep-learning-based multi-view-geometry methods, and methods for generalizable novel view synthesis [81, 68, 7, 71, 18, 62], unlocking training on internet-scale datasets of unposed videos.
+
+8.0.4 Acknowledgements.
+
+This work was supported by the National Science Foundation under Grant No. 2211259, by the Singapore DSTA under DST00OECI20300823 (New Representations for Vision and 3D Self-Supervised Learning for Label-Efficient Vision), by the Intelligence Advanced Research Projects Activity (IARPA) via Department of Interior/ Interior Business Center (DOI/IBC) under 140D0423C0075, by the Amazon Science Hub, and by IBM. The Toyota Research Institute also partially supported this work. The views and conclusions contained herein reflect the opinions and conclusions of its authors and no other entity. Vincent thanks his Mom for crocheting baby Yoda.

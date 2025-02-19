@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "ms-python.vscode-pylance",
+        "ms-vscode.live-server",
+    ]
+}

@@ -1,0 +1,761 @@
+Language models generalize beyond natural proteins
+Robert Verkuil 1 * Ori Kabeli 1 * Yilun Du 1 2 Basile I. M. Wicky 3 4 Lukas F. Milles 3 4 Justas Dauparas 3 4
+David Baker 3 4 5 Sergey Ovchinnikov 6 Tom Sercu 1 Alexander Rives 1 7 †
+Abstract
+Learning the design patterns of proteins from sequences
+across evolution may have promise toward generative
+protein design. However it is unknown whether lan-
+guage models, trained on sequences of natural proteins,
+will be capable of more than memorization of existing
+protein families. Here we show that language models
+generalize beyond natural proteins to generate de novo
+proteins. We focus on two protein design tasks: fixed
+backbone design where the structure is specified, and
+unconstrained generation where the structure is sampled
+from the model. Remarkably although the models are
+trained only on sequences, we find that they are capable
+of designing structure. A total of 228 generated pro-
+teins are evaluated experimentally with high overall suc-
+cess rates (152/228 or 67%) in producing a soluble and
+monomeric species by size exclusion chromatography.
+Out of 152 experimentally successful designs, 35 have
+no significant sequence match to known natural proteins.
+Of the remaining 117, sequence identity to the nearest
+sequence match is at median 27%, below 20% for 6
+designs, and as low as 18% for 3 designs. For fixed back-
+bone design, the language model generates successful
+designs for each of eight experimentally evaluated artifi-
+cially created fixed backbone targets. For unconstrained
+generation, sampled proteins cover diverse topologies
+and secondary structure compositions, and have high
+experimental success rate (71/129 or 55%). The designs
+reflect deep patterns linking sequence and structure, in-
+cluding motifs that occur in related natural structures,
+and motifs that are not observed in similar structural
+contexts in known protein families. The results show
+that language models, though only trained on sequences,
+learn a deep grammar that enables the design of protein
+structure, extending beyond natural proteins.
+*Equal contribution 1Meta Fundamental AI Research Protein Team
+(FAIR). 2Massachusetts Institute of Technology. Work performed as
+visiting researcher at Meta FAIR. 3Department of Biochemistry, Uni-
+versity of Washington, Seattle, WA, USA. 4Institute for Protein De-
+sign, University of Washington, Seattle, WA, USA. 5Howard Hughes
+Medical Institute, University of Washington, Seattle, WA, USA. 6John
+Harvard Distinguished Science Fellowship Program, Harvard Univer-
+sity, Cambridge, MA, USA. 7New York University. Data available
+at: <https://github.com/facebookresearch/esm>.
+†Correspondence to
+<arives@meta.com>.
+Preprint. Copyright 2022 by the authors.
+Introduction
+Generative artificial intelligence for biology has potential to open
+up a space of protein design beyond natural proteins. Since amino
+acid sequences are the fundamental codes of proteins, learning
+to read and write these codes with a language model may have
+promise. Language models have played a central role in recent
+advances in artificial intelligence (1), including developments in
+complex reasoning, mathematical problem solving, image gener-
+ation, and natural language generation (2–4). Scaling laws link
+performance with the compute, data, and number of parameters
+used to train the models (5), and emergence of higher level capabil-
+ities is observed with increasing scale (6). In biology, recent work
+on evolutionary scale language models of proteins has shown that
+a deep knowledge of intrinsic biological properties emerges from
+training on protein sequences (7). Information about the folded
+three dimensional structure of proteins develops within the mod-
+els, extending to atomic resolution structure (8). This information
+emerges through training on sequences alone. At the same time
+the structural information that emerges as a result of training on
+sequences has been shown to depend on the available evolutionary
+information, varying as a function of the number of related proteins
+in the training data (8, 9). It is an open question across domains to
+what extent language models are capable of generalizing outside
+their training data. In biology, it is unknown whether language
+models can be used to explore a design space beyond that of natural
+proteins.
+Here we demonstrate that language models generalize beyond nat-
+ural proteins to generate de novo proteins, different in sequence
+and structure from natural proteins. We experimentally validate a
+large number of designs spanning diverse topologies and sequences.
+We find that although language models are trained only on the se-
+quences of proteins, they are capable of designing protein structure,
+including structures of artificially engineered de novo proteins that
+are distinct from those of natural proteins. Given the backbone of
+a de novo protein structure as a target, the language model gener-
+ates sequences that are predicted to fold to the specified structure.
+When the sequence and structure are both free, language models
+produce designs that span a wide range of fold topologies and
+secondary structure compositions, creating proteins which overlap
+the natural sequence distribution as well as extend beyond it. De-
+signs succeed experimentally across the space of sampled proteins,
+including many designs that are distant in sequence from natural
+proteins. The model generates motifs that link sequence to the
+design of structure and can apply them in new sequence and struc-
+tural contexts, including motifs such as complex hydrogen bond
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+A
+De Novo
+Target Set
+Generated
+Proteins
+B
+C
+"
+j
+train
+Natural
+Sequences
+Target: ---RS-----R---V-----
+ESM2
+Input: MWQRSVETRWRKKRVHVELT
+!
+!
+Attention Maps
+D
+Linear
+Projection
+Stacked
+Attention
+Maps
+660
+Features
+18
+Distance
+Bins
+#(%&'(&)*&) # %,-(*,(-& %&'(&)*&)
+E
+13
+Distogram
+. 25
+13
+25
+F Fixed-Backbone Sequence
+MWQRSTYYRAGTT
+G
+Compute
+! "#$%&#%$' = #)$*'# "'+'%,&')
+MCMC
+p(struct|seq) target
+Sample Mutation
+! #$%&$'($ #*+&(*&+$)
+Free Generation
+Sample structure
+! #*+&(*&+$ #$%&$'($)
+Sequence
+MYKKLVQYRGTAK
+MCMC
+Sample Mutation
+!(#$%&$'($|#*+&(*&+$)
+Design
+H
+Oracle confidence score:
+Figure 1. Overview. (A) Illustration of protein sequence space. Natural sequences (gray) cover a fraction of possible protein sequences. To generalize
+beyond natural sequences language models will need to access underlying design patterns. We evaluate language models on (i) a fixed backbone sequence
+design task with a set of de novo designed proteins (green), and (ii) via an unconstrained de novo protein generation task (orange). (B) The language
+model ESM2 is trained using masked language modeling over millions of diverse natural proteins across evolution. (C) After training, information
+about tertiary structure can be identified in the internal attention states of the model. A linear projection translates the attention at a pair of positions
+in the sequence to a distribution over inter-residue distances. (D) Probability of a sequence. The model outputs a probability for each amino acid at
+every position in the protein, here shown for the designed protein 6W3W. The model gives a higher probability to hydrophilic amino acids at a surface
+residue and hydrophobic ones at a residue in the core. (E) Probability of a structure given a sequence. For a given sequence the projection measures the
+compatibility of the internal representations of the language model with a structure. Tertiary structure is identified by probability mass on inter-residue
+distances less than 8 ˚ A. For 6W3W there is a good match between the projected structure (above diagonal) and ground truth structure (below diagonal).
+(F) The two terms giving the probability of sequences and structures are used to generate sequences. For fixed target design we use MCMC to generate
+sequences given a specified backbone structure, by sampling from the conditional distribution of sequences given a structure. (G) For unconstrained
+generation we allow both the sequence and structure to vary. (H) Predicted structures (using AlphaFold) are shown at even intervals across a single free
+generation trajectory. The model samples a range of possible topologies before narrowing to the refinement of one topology.
+2
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+networks that are not found in sequence- or structurally-similar
+known proteins. Overall experimental success rates are high with
+152 out of a total of 228 (67%) experimentally evaluated proteins
+producing a soluble and monomeric species by size exclusion chro-
+matography (SEC). The high success rate extends to proteins that
+are distant from natural proteins where 31 out of a total of 49 (63%)
+experimentally evaluated proteins succeed.
+A deep grammar of protein sequences
+We hypothesize that there exists a deep underlying grammar in
+protein sequences that makes it possible for the language model
+to generalize. To generalize beyond natural proteins, language
+models will need to access design patterns that extend outside the
+space of natural proteins. Classically this form generalization has
+been enabled by an energy function grounded in physics that cap-
+tures the native folded state (10). Recently deep learning based
+methods grounded in structure have been proposed as a new ap-
+proach to this problem by inverting structure prediction (11, 12),
+or conditioning on backbone structures (13–15). By modeling the
+structure explicitly during training, new deep learning approaches
+may capture something similar to the physical energy (16). The
+success of language models on this problem suggests that deep pat-
+terns in sequences may offer an alternative path to generalization,
+independent of an explicit model of the underlying physics.
+The classical perspective of evolutionary inference from sequences
+is that information about the properties of proteins is encoded into
+the sequence patterns of evolutionarily related proteins through
+conservation and coevolution. This view develops from the obser-
+vation that the statistics of protein families reflect the constraints
+acting on the evolution of the sequences including biological struc-
+ture and function (17, 18). This insight has formed the basis for
+the inference of structure and function from sequences in a protein
+family (19), and has also recently been applied with success by
+generative models to generate new examples from existing protein
+families (20–22). To date experimental validation of sequence
+based models for protein design has been limited to natural protein
+families.
+Accessing a de novo design space distant from naturally occur-
+ring protein families is a fundamentally more challenging problem.
+This problem by definition cannot be solved by generating new
+samples from naturally occurring protein families. To solve this
+problem with a model grounded in sequences, it will be neces-
+sary to learn sequence patterns that generalize beyond individual
+protein families. Evolutionary scale language models go beyond
+classic protein family models by training on diverse sequences
+across evolution which means that they have the potential to learn
+deep patterns across all proteins, including where there is no exper-
+imental structure. There is evidence for local patterns in sequences
+that generalize beyond individual protein families, in the form of
+motifs that are local in the sequence (23) as well as motifs that are
+local in 3d space (24). However, the mapping between sequence
+and structure is not one-to-one (25), and designing sequences to
+reach a well-folded native state requires solving an exponentially
+large combinatorial problem to select a set of local sequence pat-
+terns which interact non-locally to specify a coherent structure
+(26). To design protein structure, the language model will have
+to develop an implicit understanding of how sequence determines
+structure, including local rules that link the design of structure
+with sequence, as well as global rules that determine whether a
+sequence is coherent and will fold into a native state.
+Generative protein design with language models
+We evaluate language models generatively, focusing on general-
+ization beyond natural proteins. The known protein sequences
+sampled by evolution represent only a small fraction of the vast
+number of possible proteins (Fig. 1A). To generalize outside the
+space of proteins that has been explored by evolution it will be nec-
+essary to access deep patterns of protein design that apply outside
+this space. We focus on two generative protein design tasks. The
+first is fixed backbone design where the objective is to generate
+a sequence that folds to the target structure. This task assesses
+the ability of the language model, which has been trained only on
+sequences, to design protein structures. The second task is free
+generation, where the structure is unconstrained and allowed to
+vary along with the sequence. This enables characterization of the
+full generative capability of the model across diverse sequences and
+structural patterns to understand the space of proteins accessible to
+the model.
+A test set of de novo designed artificial proteins is used to as-
+sess generalization beyond natural protein structures. The test set
+includes a diverse selection (N = 39) of structurally validated ar-
+tificial protein structures from the Protein Data Bank (PDB) (27),
+which span a range of lengths (67 ≤L ≤184), and topologies
+(Fig. S1 and Appendix A.1). Importantly, these de novo proteins
+have meaningful structural differences from proteins belonging to
+natural folds, including with respect to ideality, exact repetition,
+and symmetry of elements. Since the language model has not been
+trained on protein structures, generating designs for these back-
+bones tests for the ability of the model to generalize to structures
+unlike those of the natural proteins whose sequences it has been
+trained on.
+The language model, ESM2, is an evolutionary scale model of
+protein sequences that has been trained across the full extent of
+natural protein sequences (28). The training dataset excludes arti-
+ficial sequences, as well as any sequences having similarity to the
+test set of de novo proteins used in the evaluations (Appendix A.1).
+ESM2 is trained with the masked language modeling objective (29)
+to recover the identity of amino acids from their context in the rest
+of the sequence (Fig. 1B). This training objective has been shown
+to materialize information about the folded structure of proteins
+in the internal representations of the model (7–9, 30). Since the
+training of the language model is only on sequences, information
+about structure that emerges must be the result of the unsupervised
+learning of patterns in sequences.
+A linear projection from the attention maps of the language model
+identifies internal states that reflect protein structure. Previous
+work has shown that specific attention maps in transformer protein
+language models such as ESM2 encode the proximity of residue
+3
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+A
+Oracle RMSD to Ground Truth Structure
+B Comparison
+LM Designs
+C LM No LM
+D
+Optimization
+LM Designs
+E F Perplexity
+SEC Curves
+G
+Distant Proteins
+Trajectory
+LM No LM
+LM No LM
+Low Perplexity High Perplexity
+Figure 2. Design of sequences for de novo structures. (A) Overall evaluation of designs for the de novo target set using an in silico oracle. Root-
+mean-square deviation (RMSD) between C-alpha atoms designed structure (oracle prediction) and target structure is plotted for the top 10 designs by
+optimization objective for each target. Targets are ordered by increasing length. The language model generates sequences that are predicted to fold to
+the target structure for a large majority of de novo backbones in the test set. (33/39 achieve median RMSD <2.5 ˚ A). (B) Experimental outcomes for
+ESM designs. A total of 79 designs across 6 de novo backbone targets were selected by a variety of criteria including sequence novelty and manual
+inspection for interesting motifs. Designs are considered a success if they are soluble and there is a peak at the expected elution volume by size-exclusion
+chromatography (SEC). Designs are categorized as monodisperse when the only peak is at the expected elution volume. Overall, 78% succeed, and 39%
+are monodisperse. (C) Experimental outcomes for comparison of designs with and without the language model. For each of the four targets, the top 5 out
+of 200 designs by optimization objective were selected for experimental evaluation. Overall 95% of designs with a language model succeed, while
+most designs without a language model fail due to insolubility. (D) (Left) Optimization trajectory showing energy specified by the language model vs
+RMSD to target, over the course of MCMC optimization. Energy decreases and funnels to low RMSD. (Right) Visualization of the top 5 designs selected
+by energy at the end of each trajectory. (E) Language modeling perplexity of designs. Language model designs are seen as probable by the language
+model, while high perplexity for the baseline designs indicates their sequences are seen as improbable. This coincides with experimental success. (F)
+Comparison of SEC traces between designs with and without a language model. The vast majority of language model designs are soluble and have a
+peak at the expected elution volume; in comparison few designs without a language model are soluble. (G) A subset of additional, successful language
+model designs are novel with respect to known natural proteins. Examples for four different backbones are shown with the design superimposed on the
+predicted structure of the top-significance hit from a sequence search against natural proteins. In each case the closest natural sequence has low sequence
+identity (<0.3) and predicted structure with different topology.
+4
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+pairs in the structure (9, 30). We fit a linear projection that takes
+the attention between two positions in the protein sequence and
+outputs a distribution over pairwise distances (Fig. 1C). This maps
+an internal attention state of 660 dimensions into 18 inter-residue
+distance bins. Because of the limited number of parameters (660
+per distance bin for a total of 11,898 including a bias for each
+distance bin), far too few to represent the immense complexity
+of possible protein structures, the output can be interpreted as a
+projection of the structure captured by the internal states of the
+model. The projection defines an energy landscape (a function
+of the representation states of the language model rather than a
+physical energy) that can be used to evaluate the compatibility
+of any given structure with the representation of the sequence
+produced by the language model. Application to the de novo target
+set shows understanding of existing de novo proteins (Table S1
+and Figs. S2 and S3).
+Together, the models of sequence, and structure given sequence,
+specify a generative model of proteins defined by the language
+model. The sequence model assigns a probability to any sequence,
+by giving a probability for each amino acid at every position in the
+protein (Fig. 1D). For natural proteins these probabilities reflect
+the functional effects of mutations, structural preferences of amino
+acids, and aspects of biochemical function (31). The projection
+of structure gives a compatibility between the language model’s
+representation of a sequence with a three dimensional structure
+(Fig. 1E). In this work, we consider these models to specify a
+generative model for protein design:
+p(sequence,structure) = p(structure|sequence)p(sequence)
+For fixed backbone design, protein sequences are generated by
+taking low temperature samples from the conditional distribution
+specified by the language model via Markov chain Monte Carlo
+(MCMC) with simulated annealing (Fig. 1F, Appendix A.3.1).
+Free generation removes the constraint on structure entirely and
+generates new proteins by sampling from the joint distribution of
+sequence and structure specified by the language model. A blocked
+Gibbs sampling approach is introduced which alternates between
+sampling a new structure conditioned on the current sequence,
+and sampling a new sequence conditioned on the current structure
+(Fig. 1G, Appendix A.3.3). An example free generation trajectory
+is shown in Fig. 1H. As the temperature is lowered, the trajectory
+proceeds from a phase where it samples a range of possible topolo-
+gies before narrowing into a single topology that is refined into a
+confidently predicted structure in the final stage of optimization.
+We perform extensive experimental testing of a total of 228 designs
+from the language model. Designs are considered a success that
+are well expressed, soluble, and pass a size exclusion chromatog-
+raphy (SEC) test for molecular (hydrodynamic) radius indicative
+of a properly-folded monomeric species (Appendix A.7). Experi-
+mental success of a significant fraction of the generated proteins,
+along with independent computational evaluation of the structures,
+demonstrates that language models are able to access a design
+space beyond that of natural proteins.
+Language models design sequences that fold to de
+novo structures
+Fixed backbone design evaluates generation of sequences to realize
+a specified target structure. Use of de novo designed structures as
+targets requires the model to generalize beyond natural proteins,
+necessitating the use of more general patterns for the design of
+structure. Success at this task would indicate that the model has an
+understanding of the underlying design principles of protein struc-
+ture generalizing to structures not encoded by natural sequences.
+Across the test set of 39 artificially designed de novo protein struc-
+tures, fixed backbone designs generated by the language model are
+predicted to closely match the target structures by the AlphaFold
+high-resolution structure prediction oracle. We generate 200 differ-
+ent designs for each of the de novo target structures (Appendix A.4).
+The generative model succeeds in producing low-RMSD designs
+for the vast majority of targets in the de novo test set (Fig. 2A).
+Subsetting to the best 10 of 200 designs by the language model’s
+optimization objective, median RMSD is <2.5 ˚ A for 84% (33/39)
+of targets and minimum RMSD is <2 ˚ A for 90% (35/39) of targets.
+Structures are also confidently predicted, with median pTM >
+0.7 for 56% (22/39) and maximum pTM >0.7 for 90% (35/39).
+Average sequence identity with the targets is low (22%), indicating
+that the language model is finding solutions to the design problem
+that differ from the original sequence.
+Generated proteins have high overall experimental success rates in
+the laboratory. We ran an additional set of fixed backbone design
+trajectories to explore the diversity of design motifs generated from
+the model. A total of 79 fixed backbone designs spanning 6 de
+novo targets were selected from a pool including the additional
+trajectories for evaluation by a variety of criteria including the pres-
+ence of interesting structural motifs (Appendix A.6). Out of this set
+of experimentally tested proteins, 97% (77/79) were soluble, 78%
+(62/79) were successful, passing a SEC test for the presence of a
+peak at the expected elution volume indicating a folded monomeric
+species, and 39% (31/79) were monodisperse, exhibiting only a sin-
+gle SEC peak at the expected elution volume (Fig. 2B). Successes
+span a range of topologies, including a success for length 182 de
+novo TIM-barrel 6WVS which has a highly idealized symmetric
+structure (Fig. S4). Across the set of experimental successes, se-
+quence identity to the original sequence of the target structure is
+low (mean = 24%), which suggests that the language model is
+exploring a new design space for the target structures.
+We perform a controlled experiment to understand the role of the
+language model in experimental success of designs. For compar-
+ison we use AlphaFold as a model of the probability of structure
+given sequence. For a set of four fixed backbone de novo targets
+with distinct folds, we generate 200 designs using each method,
+with the top 5 by optimization objective for each method selected
+for experimental evaluation (Appendix A.3). Experimentally, 95%
+(19/20) of language model sequence designs and 5% (1/20) designs
+without a language model were successful (Fig. 2C). Augmenting
+AlphaFold with an n-gram prior, fails to rescue the designs (0%
+success rate, 0/20) (Tables S3 and S4).
+5
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+A
+D
+B
+E
+C
+Figure 3. Language models materialize deep patterns of protein design, generating native-like and de novo motifs. (A) Placement of proline or glycine
+within three different designed proteins induce curvature on alpha-helices, beta-sheets, and turns. (B,C) Hydrogen bond networks in turns. (B) Helix
+dipole capping forms hydrogen bonds to obscure polar backbone atoms in the final helix turn. (C) Hydrogen bond networks formed in turns involving
+beta-sheets. (D,E) Comparison of motifs in designed and natural proteins. Designs (left) are compared against the nearest motif in natural proteins found
+by sequence search (center), and structure search (right). Hits are sorted by matching amino acids only at motif positions. (D) Example of a hydrogen
+bond motif used in one of the designs. Sequence matches are found that have the same motif in aligned positions. However the surrounding sequence
+context is significantly different, having 26% sequence identity. (E) Examples of possible de novo hydrogen-bond networks. Not only is the sequence
+context different, the motif itself is not present in the aligned positions of any matching natural sequences or structures.
+Language model perplexity separates success from failure across
+both design methods. MCMC trajectories for the language model
+funnel to low RMSD with decreasing energy, with average RMSD
+values ranging from 1.1 ˚ A to 2.4 ˚ A (Fig. 2D). Notably, while
+AlphaFold confidently predicts the structures of language model
+designs, the language model does not assign high sequence likeli-
+hoods to AlphaFold designs. Language model perplexities of select
+AlphaFold-designed sequences range from 10.6 to 13.1 (Fig. 2E),
+significantly higher than the average de novo target sequence per-
+plexity of 6.7. Other metrics have limited ability to identify ex-
+perimental success (Fig. S5 and Table S4): the Rosetta all-atom
+energy function for modeling and design (32, 33) judges both sets
+to be good designs, packing metrics are similar but slightly favor
+the (unsuccessful) AlphaFold designs, while hydrophobicity and
+SAP score favor the language model designs. Recently autore-
+gressive inverse folding models directly conditioned on the target
+structure have demonstrated high experimental success rates in
+the laboratory (15). We generated sequences with ProteinMPNN
+and ESM-IF1 (14). Both models achieve high local confidence
+pLDDT (>90 mean). Their ESM pseudo-perplexity is 5.76 and
+5.79 respectively, higher than ESM designs and significantly lower
+than AlphaFold designs (Table S2), in line with high experimental
+success rates reported for those methods.
+Experimental evaluation of both design sets (with and without the
+language model) indicates that 19/20 of language model designs
+are successful and 9/20 are monomeric (Fig. 2F). Target 6D0T
+has no monomeric designs from the language model, though the
+ground truth de novo sequence was also found to not be monomeric,
+when tested as a positive control (Appendix A.7). Designs without
+a language model largely fail due to insolubility.
+Including the results of the controlled comparison, and the larger
+set of designs evaluated, the language model produced experimen-
+tally successful designs for all of a total of 8 de novo backbones.
+One possibility is that language model designs succeed because
+the model retrieves a protein similar to the target from its training
+set. To rule this out, we analyze the overall set of 81 experimental
+successes. Each design is searched against UniRef90 (which fully
+includes the sequences used to train the language model) to identify
+similar sequences (Appendix A.5). For 17 successful designs span-
+ning 4 backbones, there are no significant (E-value <1) sequence
+matches whatsoever in the training set. Four of these are shown
+in Fig. 2G. Of the remaining 64, sequence identity to the nearest
+sequence match is only 27% on average, and is <30% for 41 of
+the 64, spanning each of the 8 tested backbones. This suggests that
+the model is not solving the design problem by retrieving similar
+sequences it has memorized.
+6
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+To further understand whether the model is using homology at
+the threshold of detection by sequence similarity, we obtained
+AlphaFold predicted structures of hits, including those that do
+not reach the significance cutoff (Appendix A.5; Fig. S6). For
+19/81 experimental successes top Jackhmmer hits are not structural
+matches to the design. For 19 designs spanning 4 backbones,
+the top-10 jackhmmer hits (including those that do not reach the
+significant threshold) all have TM-score < 0.6. For 8 of those
+designs spanning the same 4 backbones, top-10 hits are all likely
+to be a different fold (TMscore <0.5). This suggests that while
+in some cases the model is able to use sequence homology at the
+threshold of detection, there are also cases where it appears to
+have generalized beyond that, further evidence that in many cases
+the language model is generating novel solutions to the design
+problem which differ both from the ground-truth sequence, and
+natural proteins.
+Language models materialize deep patterns of
+protein design
+Generated proteins show evidence of using deep patterns of the
+design of protein structure. These patterns occur in the form of
+structural motifs used in the design of natural proteins applied in
+significantly differing sequence contexts, as well as the formation
+of motifs which cannot be found in related structures. Two well-
+studied ways that sequence determines structure are through amino
+acids that constrain backbone-geometry, and through the role of
+chemically diverse side chains in determining the intermolecular
+forces that stabilize a protein’s particular folded conformation. Two
+amino acids which influence backbone geometry are proline and
+glycine. These two amino acids add flexibility to and bend protein
+backbones, respectively. In three example designs, the language
+model places these residues to induce curvature in various sec-
+ondary structure elements: a proline bends an alpha-helix, regular
+placement of glycines in beta-sheets promote the flexibility to form
+a beta-barrel, and all but one glycine are placed in loops in an NTF2
+design (Fig. 3A). A side chain based motif present through fixed
+backbone designs is helix dipole capping, where side chains of
+amino acids at the ends of alpha-helices obscure otherwise exposed
+polar backbone atoms in the final alpha-helix turn (Fig. 3B). A
+second side chain based motif is hydrogen-bond networks in bulge-
+containing beta-turns, which are present in fixed backbone designs
+for beta-barrels, such as 6D0T and 6CZJ (Fig. 3C). This and to a
+larger extent the periodic glycines in beta-strands in Fig. 3A were
+identified as natural motifs that enabled successful de novo design
+of the target beta-barrel in (34).
+Designs also exhibit complex hydrogen bonding networks. Some
+design successes include hydrogen bonding networks between
+four or more polar and even charged residues in the interior of
+structures. Design of buried polar and charged interactions is dif-
+ficult due to the geometric constraints of energetically satisfying
+such interactions (35). Notably, the bond networks shown span a
+range of intermolecular force categories: among predicted struc-
+tures, F129, a beta-barrel, contains a salt-bridge, F025 contains
+a pi-cation bond, and F030 contains a T-shaped pi-pi interaction
+(Fig. S7). The original designs for the examples shown have purely
+hydrophobic interiors. While these hydrogen bonding networks
+can only be fully confirmed by high-resolution structural studies,
+the biophysical properties observed (high yield of monodisperse
+protein with the expected retention volume) is consistent with their
+accuracy, since inaccurate placement of these residues is likely to
+lead to mis-folding and aggregation.
+The hydrogen-bonding networks with polar residues are realized in
+new sequence contexts, indicating a strong form of generalization
+beyond the sequences used for training the model. We retrieve the
+most similar aligned sequences via Jackhmmer search of UniRef90
+and similar, aligned structures via Foldseek (36) search of Al-
+phaFold DB (37). Returned sequences are all sorted by minimum
+edit distance at aligned motif positions, and the closest matching
+motif is shown. (Appendix A.5.4). For generated protein F030
+(Fig. 3D, Fig. S7), sequence search does recover a natural protein
+with this motif in aligned positions. However the surrounding
+sequence context in the design is dissimilar, having a full-sequence
+identity of 26%. For F129 and F092 (Fig. 3E, Fig. S7), not only
+does the surrounding sequence context have low sequence identity,
+the motif itself is not present in the aligned positions of any match-
+ing natural sequences or structures. Use of these motifs in fixed
+backbone designs is a remarkable form of generalization, since the
+model is applying them in new sequence contexts, and structures
+that are distinct from natural proteins.
+Language models generate novel structures and
+sequences
+Language models generate new protein sequences that differ signif-
+icantly from natural sequences. We sample a large set (N = 25,000)
+of proteins of fixed length (L = 100) without constraint on the
+structure. The blocked Gibbs sampling method which traverses the
+joint landscape of sequence and structure provides a more diverse
+set of proteins than previous unconstrained generation methods
+(Table S5).
+Generations cover a variety of topologies with sequences overall
+dissimilar from natural proteins. Structures are predicted for all
+generated sequences using Alphafold, and generations are pro-
+jected into two dimensions using t-SNE based on their pairwise
+structural distance measured by TM-score (Fig. 4A). In a hier-
+archical clustering of the structures, 7,663 distinct clusters were
+identified at a TM-score threshold of 0.75. The distribution of the
+generated secondary structures reveals a range of patterns with 52%
+of generations containing mostly alpha helices, 22% containing
+mostly beta sheets, and 28% a mix of alpha helices and beta sheets
+(Fig. 4B). A large fraction of the generations are well predicted by
+the oracle (median pLDDT = 84.49, 70% pLDDT >70; Fig. 4C).
+Many of the generations are distant in sequence from natural pro-
+teins. We measure the distance of generated sequences from natural
+proteins by searching each generation against the 200M natural
+sequences in AlphaFold DB (37). This also enables comparison
+of the structure of the nearest sequence match to that of the gener-
+ated protein. Overall the language model generates proteins which
+7
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+A
+D
+E
+Overall
+De novo
+De novo
+More
+novel
+F
+B
+Generations
+Comparison
+to top hit
+C
+G
+Figure 4. Language models generate novel structures and sequences. (A) Embedding of the structural space spanned by the generated proteins using
+t-SNE. Color indicates sequence identity to the best matching native sequence. A large fraction of the space has low sequence identity to natural proteins
+with 16% of generations having no significant sequence match to a natural protein. Designs that succeeded in experimental evaluation are indicated
+with green stars. (B) Distribution of secondary structure for generations. Experimental successes (green) are observed over differing compositions of
+secondary structure. (C) Distributions of pLDDT and pTM indicate designs are well predicted (median pLDDT of 84.5) by the in silico oracle. (D)
+Density plot of sequence and structural similarity to natural proteins. For each generated protein the best matching native sequence is retrieved from
+AlphaFoldDB. Each generated protein is plotted by its sequence similarity (x-axis) and structure similarity (y-axis) to the match, with hits that do not
+pass the significance threshold marked at zero on the x-axis. Generated proteins occupy a part of the space distinct from natural proteins, with a fraction
+having minimal sequence similarity to natural proteins (lower left quadrant). Designs passing in silico filters and experimental successes are coextensive
+with the overall distribution of generations. (E) Overall outcome of experimental evaluations. The majority of tested designs (55%) passed the solubility
+test and had an elution volume peak in the correct confidence interval (top). Additionally a high fraction (63%) of the evaluated proteins distant from
+natural sequences are successful (bottom). (F) Predicted structures of six experimental successes (top). Structures are aligned against the oracle predicted
+structure of their top significant hit from a sequence search of natural proteins (bottom); in all examples the predicted topology is different. (G) For
+generations in panel F, the same motifs as in Fig. 3A - 3C are shown: Proline and Glycine inducing curvature, helix capping, and hydrogen-bond networks
+in turns. Even on proteins with minimal similarity to naturals, the language model produces known motifs.
+8
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+show a clear separation from the distribution of natural proteins,
+including a fraction that are distant from known proteins. Fig. 4D
+shows the distribution of similarity to known proteins, where each
+generation is plotted according to its sequence (x-axis) and struc-
+tural (y-axis) similarity to its top sequence hit, with insignificant
+(E-value >1) hits placed at x=0 (16.6% of generations, in total). A
+large part of the distribution of generated proteins have structures
+different from those predicted for their nearest sequence match,
+further evidence that the model is not simply memorizing known
+proteins. A set of 15k natural proteins are also shown. Natural
+proteins cluster in the upper right corner, while generated proteins
+occupy a distinct part of the space. A significant fraction of the lan-
+guage model generated proteins (15.5%) have minimal similarity
+to natural proteins (lower left quadrant), with minimal sequence
+similarity (Seq-id < 0.2) of the nearest match, and a predicted
+structure likely to be a different fold (TM-score <0.5).
+A large fraction of the designs, including those that are distant from
+natural proteins, succeed experimentally. We selected a number
+of designs that passed our in silico quality filters for experimental
+evaluation. Out of the total set of generations, 20% (N = 5,198)
+passed the quality filters (Appendix A.4). A total of 129 of that set
+were expressed and evaluated, and 55% (71/129) were found to be
+experimentally successful. The 71 structures and their metrics are
+shown in Fig. S8, marked with a green star in Figs. 4A, 4B and 4D.
+Overall, 96% of the free generations that were evaluated were
+soluble, 55% had an elution volume peak in the correct confidence
+interval, and 30% were monodisperse (Fig. 4E top, Appendix A.7).
+A high success rate is also observed for generations that are distant
+from natural proteins. For a set of 49 distant generations (Fig. 4D,
+bottom-left quadrant), 31 of 49 (63%) are successful in experimen-
+tal evaluation. For these 31 experimental successes we perform a
+deeper analysis of similarity to natural proteins. We further search
+each against UniRef90 which provides comprehensive coverage of
+natural proteins and fully contains the language model’s training
+set. Out of 31 distant designs, 16 have no significant (E-value <
+1) sequence matches whatsoever (Fig. S9). We obtain predicted
+structures for the top-10 sequence matches regardless of their sig-
+nificance. For 12 out of the 31 distant designs (5 of which are
+shown in Fig. 4F), none of the sequence matches are likely to have
+the same fold (TM-score <0.5) (Fig. S9). Predicted structures are
+generally confident (78% of predictions with pLDDT >70, aver-
+age pLDDT = 81.24). Structural motifs observed in fixed backbone
+designs such as proline and glycine placement, helix capping, and
+hydrogen-bond networks, also appear within de novo generations
+(Fig. 4G). As a whole these results show that the language model
+generalizes outside the space of natural proteins to generate de
+novo proteins.
+Evolutionary scale language models
+Transformer protein language models were introduced by (7),
+which found evidence for the emergence of information about
+function and tertiary structure from the unsupervised training. Con-
+current work at a smaller scale examined LSTM-based models
+(38–40). Large scale protein language models with billions of pa-
+rameters have now been open sourced (8, 41–43). Generative use
+of language models has recently been explored by in silico studies
+(44, 45), and experimentally with confirmation of function for new
+sequences generated for existing protein families (22). To the best
+of our knowledge, experimentally validated work (20, 22, 46) with
+sequence based models has not crossed the threshold of <30%
+identity to natural proteins.
+Conclusions
+The classical picture of sequence space as being constituted by
+independent local evolutionary landscapes around each protein
+family would suggest that language models will be limited to a
+memorization of the space of natural proteins. Consistent with this,
+the information about structure that emerges in language models of
+proteins has been shown to depend on the evolutionary information
+available to the model during training, which would appear to be
+unencouraging for the potential to use language models genera-
+tively beyond natural proteins. Here we have presented evidence
+counter to this: language models generalize beyond natural protein
+families to generate proteins in a sequence space distant from natu-
+ral proteins. Our results are the first time purely sequence based
+approaches have been shown to generalize beyond natural proteins,
+and are promising for sequence based generative artificial intelli-
+gence for de novo protein design, where we have demonstrated
+that there exists a space of de novo proteins, distant from those in
+nature, that are designable by generative language models.
+This generalization points to a deeper structure underlying natural
+sequences, and to the existence of a deep grammar that is learnable
+by a language model. Our results suggest that the vast extent of
+protein sequences created through evolution contains an image of
+biological structure and function that reveals design patterns that
+apply across proteins, that can be learned and recombined by a
+fully sequence based model. The generalization beyond natural
+proteins does not necessarily indicate that language models are
+learning a physical energy. Language models may still be learning
+patterns, rather than the physical energy, but speculatively, in the
+limit of infinite sequence data, these patterns might approximate
+the physical energy. At a minimum the language model must have
+developed an understanding of the global coherence of a protein
+connecting the sequence and folded structure.
+The existence of a deep grammar across proteins would explain the
+two observations which prima facie seem to contradict each other:
+that the understanding of natural proteins depends on evolutionary
+support in the training data, and also that the language models
+generalize outside of known natural protein families. If there is
+a power law distribution of learnable patterns, then it is expected
+that many protein structures will be designable with the common
+patterns that have the most support in the training data. At the
+same time, the frequency that patterns are observed in the training
+data will correspond with the learnability of the patterns. It will
+take greater amounts of training data, and model capacity, to learn
+rare patterns. This is consistent with the observation of both gener-
+alization to a new design space (that is accessible via the patterns
+that have been learned), and dependence on support in training
+9
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521521 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+Language models generalize beyond natural proteins
+data (the proteins composed of rare patterns are harder to learn). If
+scaling laws continue to hold for protein language models we can
+expect their generative ability will continue to improve. As models
+and data scale, the existence of a learnable underlying grammar
+would predict that the rare patterns will be learned, expanding both
+the predictive ability of the model, and the design space that is
+accessible.

@@ -1,0 +1,37 @@
+name: retfound_feature_vector
+repo: 
+  name: RETFound
+  url: "https://github.com/rmaphoh/RETFound_MAE"
+papers: [zhou2023retfound]
+category: imaging
+description: >-
+  Extract the feature vector for the given retinal image using the RETFound pretrained vit_large_patch16 model.
+arguments:
+  image_file:
+    description: Path to the retinal image.
+    type: str
+returns:
+  feature_vector:
+    description: The feature vector for the given retinal image, as a list of floats.
+    type: list
+example:
+  arguments:
+    image_file: /mount/input/retinal_image.jpg
+  mount:
+    cucumber.jpg: retinal_image.jpg
+test_cases:
+  jpg:
+    arguments:
+      image_file: /mount/input/image1.jpg
+    mount:
+      "tcga_brca_patch/TCGA-BRCA_patch_TCGA-BH-A0DE-01Z-00-DX1.64A0340A-8146-48E8-AAF7-4035988B9152.jpg": image1.jpg
+  png:
+    arguments:
+      image_file: /mount/input/image2.png
+    mount:
+      "tcga_brca_patch/TCGA-BRCA_patch_TCGA-BH-A0DE-01Z-00-DX1.64A0340A-8146-48E8-AAF7-4035988B9152.png": image2.png
+  cucumber_different_filename:
+    arguments:
+      image_file: /mount/input/cucumber.jpg
+    mount:
+      cucumber.jpg: cucumber.jpg

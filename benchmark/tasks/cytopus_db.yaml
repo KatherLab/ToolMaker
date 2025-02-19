@@ -1,0 +1,53 @@
+name: cytopus_db
+repo:
+  name: Cytopus
+  url: "https://github.com/wallet-maker/cytopus"
+papers: [kunes2023cytopus]
+category: genomics_proteomics
+description: >-
+  Initialize the Cytopus KnowledgeBase and generate a JSON file containing a nested dictionary with gene set annotations organized by cell type, suitable for input into the Spectra library.
+arguments:
+  celltype_of_interest:
+    description: List of cell types for which to retrieve gene sets
+    type: list
+  global_celltypes:
+    description: List of global cell types to include in the JSON file.
+    type: list
+  output_file:
+    description: Path to the file where the output JSON file should be stored.
+    type: str
+returns:
+  keys:
+    description: The list of keys in the produced JSON file.
+    type: list
+example:
+  arguments:
+    celltype_of_interest: ["B_memory", "B_naive", "CD4_T", "CD8_T", "DC", "ILC3", "MDC", "NK", "Treg", "gdT", "mast", "pDC", "plasma"]
+    global_celltypes: ["all-cells", "leukocyte"]
+    output_file: /mount/output/Spectra_dict.json
+test_cases:
+  B_and_CD4_T:
+    arguments:
+      celltype_of_interest: ["B", "CD4_T"]
+      global_celltypes: ["all-cells", "leukocyte"]
+      output_file: /mount/output/Spectra_dict.json
+  leukocytes:
+    arguments:
+      celltype_of_interest: ["B_memory", "B_naive", "CD4_T", "CD8_T", "DC", "ILC3", "MDC", "NK", "Treg", "gdT", "mast", "pDC", "plasma"]
+      global_celltypes: ["leukocyte"]
+      output_file: /mount/output/Spectra_dict.json
+  Treg_and_plasma_and_B_naive:
+    arguments:
+      celltype_of_interest: ["Treg", "plasma", "B_naive"]
+      global_celltypes: ["leukocyte"]
+      output_file: /mount/output/Spectra_dict.json
+note: >-
+  The Cytopus database can be used as input for the Spectra model (both are from the same authors). The README of the `cytopus` repostitory provides instructions on how to use the database for
+  making a `Spectra` compatible JSON file in `Detailed tutorial for Querying the Knowledge Base:...`. 
+  - Maybe we can try to run the ToolMaker on installing the cytopus repository, then check the `README` on how to use it to create a `Spectra` compatible JSON file.
+  - The information on how to do this is in: `https://github.com/wallet-maker/cytopus/blob/main/notebooks/KnowledgeBase_queries_colaboratory.ipynb`
+  - The function should re-implement what the notebook is doing and output a valid JSON file.
+  - We can then use this JSON file as input for our next task (`spectra_prediction`)
+  - Note1: If this is too challenging, we can give a hint that the JSON file can be created with the code in the notebook.
+  - Note2: If the model succeeds, we will most likely need to copy paste the JSON file manually from the `cytopus_db` docker to the `spectra_prediction` docker environmnent, which I think is okay :)
+

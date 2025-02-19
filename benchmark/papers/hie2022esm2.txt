@@ -1,0 +1,474 @@
+A high-level programming language for generative protein design
+Brian Hie 1 2 * Salvatore Candido 1 * Zeming Lin 1 3 Ori Kabeli 1
+Roshan Rao 1 Nikita Smetanin 1 Tom Sercu 1 Alexander Rives 1 4 †
+Abstract
+Combining a basic set of building blocks into
+more complex forms is a universal design princi-
+ple. Most protein designs have proceeded from a
+manual bottom-up approach using parts created
+by nature, but top-down design of proteins is fun-
+damentally hard due to biological complexity. We
+demonstrate how the modularity and programma-
+bility long sought for protein design can be re-
+alized through generative artificial intelligence.
+Advanced protein language models demonstrate
+emergent learning of atomic resolution structure
+and protein design principles. We leverage these
+developments to enable the programmable design
+of de novo protein sequences and structures of
+high complexity. First, we describe a high-level
+programming language based on modular build-
+ing blocks that allows a designer to easily com-
+pose a set of desired properties. We then develop
+an energy-based generative model, built on atomic
+resolution structure prediction with a language
+model, that realizes all-atom structure designs that
+have the programmed properties. Designing a di-
+verse set of specifications, including constraints
+on atomic coordinates, secondary structure, sym-
+metry, and multimerization, demonstrates the gen-
+erality and controllability of the approach. Enu-
+merating constraints at increasing levels of hier-
+archical complexity shows that the approach can
+access a combinatorially large design space.
+Introduction
+Protein design would benefit from the regularity, simplicity,
+and programmability provided by a basic set of abstractions
+(1–4) like those used in the engineering of buildings, ma-
+*Equal contribution 1Meta Fundamental AI Research Protein
+Team (FAIR). 2Stanford University. Work performed as a vis-
+iting researcher at Meta AI. 3New York University. Work per-
+formed as a visiting researcher at Meta AI. 4New York University.
+†Correspondence to <arives@meta.com>.
+Preprint. Copyright 2022 by the authors.
+chines, circuits, and computer software. But unlike these
+artificial creations, proteins cannot be decomposed into eas-
+ily recombinable parts because the local structure of the
+sequence is entangled in its global context (5, 6). Classical
+de novo protein design has attempted to determine a funda-
+mental set of structural building blocks, which could then be
+assembled into higher-order structures (7–11). Likewise, tra-
+ditional protein engineering often recombines segments or
+domains of natural protein sequences into hybrid chimeras
+(12–14). However, existing approaches have not been able
+to achieve the high combinatorial complexity that is neces-
+sary for true programmability.
+We show modern generative models realize these classical
+goals of modularity and programmability at a new level of
+combinatorial complexity. Our idea is to place the modu-
+larity and programmability at a higher level of abstraction,
+where a generative model bridges the gap between human
+intuition and the production of specific sequences and struc-
+tures. In this setting, the protein designer needs only to
+recombine high-level directives, while the task of obtain-
+ing a protein that fulfills those directives is placed on the
+generative model.
+We propose a programming language for generative protein
+design, which allows a designer to specify intuitive, mod-
+ular, and hierarchical programs. We show that high-level
+programs can be translated into low-level sequences and
+structures by a generative model. Our approach leverages
+advances in protein language models, which learn structural
+information (15, 16) and the design principles of proteins
+(see accompanying paper by Verkuil et al.).
+In this study, our specific implementation is based on an
+energy-based generative model. First, a protein designer
+specifies a high-level program consisting of a set of hier-
+archically organized constraints (Figure 1A). Then, this
+program compiles to an energy function that evaluates com-
+patibility with the constraints, which can be arbitrary and
+non-differentiable (Figure 1B). We apply constraints on
+structure by incorporating atomic-level structure predictions,
+enabled by a language model, into the energy function. This
+approach enables the generation of a wide set of complex
+designs (Figure 1C).
+The use of a high-level language allows the protein designer
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521526 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+A high-level programming language for generative protein design
+Figure 1. Overview of the high-level programming language and the optimization algorithm. (A) We propose a high-level programming
+language in which each program consists of (1) a syntax tree (corresponding to a set of nonterminal and terminal production rules) that
+enables modular and hierarchical organization of protein subunits and (2) a set of constraint functions that can be defined at each node
+of the syntax tree, where a given constraint is applied to the entire subtree rooted at the corresponding node. (B) This program is then
+compiled to a single energy function, which in our study is a simple linear combination of the specified constraint functions. The energy
+function is used to guide an optimization procedure based on simulated annealing, of which a key component is the use of an accurate and
+efficient structure predictor to evaluate the energy function at each step of the optimization. The same energy function can guide multiple
+optimization trajectories. (C) Each of these trajectories produces a protein sequence design and an associated predicted structure. These
+sequences and predicted structures can then be evaluated downstream using in silico and experimental metrics.
+to systematically reason about the design space and spec-
+ify very general, modular, and composable programs. To
+demonstrate this, we generate proteins that realize a variety
+of constraints that include secondary structure, symmetry,
+multimerization, and atomic-level coordination in the pre-
+dicted structures.We apply these constraints in complex,
+hierarchical settings, where we can enumerate a space of
+highly idealized forms that have low similarity to natural
+structures. As de novo design progresses to more complex
+proteins and protein assemblies, high-level abstractions such
+as the programming language described in this study should
+facilitate the systematic exploration and design of complex
+artificial proteins.
+A generative programming language for
+protein design
+We introduce a high-level programming language for gener-
+ative protein design. This language first requires a syntax
+tree (Figure 1A) consisting of terminal symbols (i.e., the
+leaves of the tree) that each corresponds to a unique protein
+sequence (which is potentially repeated within the protein)
+and nonterminal symbols (i.e., the internal nodes of the tree)
+that enable hierarchical organization. Second, the language
+requires a set of constraints: at each node in the tree, a pro-
+tein designer can specify any number of constraints, which
+are applied to the entire subtree. The syntax tree and its con-
+straints fully specify a program in our high-level language.
+We provide a more extended description of this language in
+the Methods section.
+Each program is compiled into an energy function that spec-
+ifies a generative model for that program in the form of a
+distribution
+pθ ( ) = exp(−Eθ ( ))
+Z(θ)
+over protein sequences conforming to the program. The
+constraints are encoded as weighted terms that are additively
+combined into the total energy. Since the partition function
+Z, which is a function of the parameters θ, is intractable,
+low temperature samples can be taken with MCMC and
+simulated annealing (Figure 1B). The generative capacity
+of this approach is built on recent developments in deep
+learning for protein biology. Specifically, each step in the
+optimization loop has access to a fast and accurate atomic-
+level structure prediction enabled by the ESM-2 protein
+language model.
+Given a single program, the generative model can create
+potentially diverse designs that fulfill the user-specified con-
+straints (Figure 1C). These constraints can be arbitary and
+nondifferentiable, and can span multiple scales of biological
+complexity, from atomic-level coordinates to abstract plans
+of the protein including the overall topology and symmetry.
+This approach allows the model to propose diverse solutions
+where many potential designs may satisfy the program. By
+leveraging an expressive model of structure in a generative
+capacity, the resulting designs respect the various constraints
+individually and are also globally coherent.
+2
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521526 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+A high-level programming language for generative protein design
+Figure 2. Programming full-protein or partial constraints. (A) A graphical representation of a program for protein “free hallucination”
+(left) along with three example designed structures (right). (B) The distribution of ESMFold pLDDT values over 200 free-hallucinated
+structures. Of these, 100% have good confidence (ESMFold pLDDT >0.7). (C) The distribution of single-sequence AlphaFold2 (ssAF2)
+over the same 200 structures; note that ssAF2 was not used in the design procedure. Of these, 22% have good confidence (ssAF2 pLDDT
+> 0.7). (D) A graphical representation of a program for fixed backbone design (left) along with example designs for six de novo target
+backbones. The experimental backbone is colored gray; the designed backbone is colored by ESMFold pLDDT. (E) For each target
+backbone, the distribution of the ESMFold pLDDT values of the final designs from 50 or more fixed backbone design seeds is plotted
+as a boxplot (for all boxplots in this figure, the box extends from first to third quartile, black line indicates the median, and whiskers
+indicate 2.5 times the interquartile range) with each seed also plotted as a black circle. A horizontal red line indicates pLDDT = 0.7.
+(F) For each target backbone, the distribution of RMSD values between the target and design backbone atoms from 50 or more fixed
+backbone design seeds is plotted as a boxplot with each seed also plotted as a black circle. A horizontal red line indicates RMSD = 2.5 ˚ A.
+(G) A graphical representation of a program for designing a protein with mixed secondary structure (top) along with example designs in
+which secondary structure was explicitly specified (bottom). (H) Top-left: A graphical representation of a program for functional site
+scaffolding. Top-right: For each scaffolded binding site, the distribution of RMSD between the native and designed binding site atoms
+(including side chains) from 2,000 seeds is plotted as a boxplot. A horizontal red line indicates RMSD = 2 ˚ A. Bottom: Example designs
+that achieve sub-angstrom atomic coordination in the scaffolded binding site atoms, high model confidence in the associated scaffold, and
+low similarity (quantified by TM-score) to the natural protein.
+3
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521526 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+A high-level programming language for generative protein design
+Results
+Full-protein constraints
+We first demonstrate that our approach can design proteins
+where the constraints are simply applied to the entire se-
+quence and structure without any hierarchical organization.
+An especially valuable constraint, which we apply gener-
+ally across all our design efforts, steers the optimization
+toward predicted structures with higher model confidence,
+i.e., high pTM and mean pLDDT. For proteins that we de-
+sire to have soluble, monomeric expression, we also steer
+the optimization to minimize hydrophobic residues that are
+solvent-exposed (Methods). Using only these constraints on
+structural confidence and hydrophobic residue placement,
+our model is able to generate or “freely hallucinate” (17)
+high-confidence structures (Figures 2A and 2B); across 200
+seeds, all optimization loops produced predicted structures
+with an ESMFold mean pLDDT greater than 0.7 (Figure
+2B). Of these, a large portion (44, or 22%) also had high
+predicted confidence (pLDDT > 0.7) by single-sequence
+AlphaFold2 (18) (Figure 2C), a separate structure prediction
+model that was not used in our optimization procedure.
+Our objective function also enables other full-protein con-
+straints, such as specifying the positions of the backbone
+atoms while allowing the algorithm to design the corre-
+sponding sequence, a design task referred to as fixed back-
+bone design (19). To achieve this, we can add a term to
+the energy function that minimizes the root-mean-square
+deviation (RMSD) between the corresponding designed and
+target backbone atoms (Methods). Our simulated annealing
+procedure successfully produces high-confidence designs
+with low RMSD (< 1.6 ˚ A) across diverse de novo back-
+bones (Figures 2D and 2E), and can do so reproducibly over
+different optimization runs (Figure 2F).
+Partial constraints
+We next sought to increase the complexity of our designable
+space by varying the constraints enforced on different parts
+of a protein. For example, a simple mixed-constraint setting
+is to specify a two-domain protein with different combina-
+tions of secondary structure composition (Figures 2G and
+S1A–S1C). In our programs, we can represent this setting
+by a syntax tree containing two or more subtrees, where
+different constraints are only applied within the discrete
+subtrees.
+A more complex mixed-constraint setting is to design func-
+tional proteins by constraining one region of the protein de-
+sign to have the same all-atom positions (including protein
+side chains) as a functional site from nature, while allowing
+the design procedure to freely generate the remainder of
+the protein; this design setting is sometimes referred to as
+functional site “scaffolding” (20). Importantly, in contrast to
+fixed backbone design, in which constraints are only placed
+on backbone atomic coordinates, functional site scaffolding
+requires constraints on side-chain atoms as well, since these
+are critical to achieving function. Because our optimization
+procedure produces an all-atom structure prediction at each
+step of the optimization, we can readily incorporate this
+constraint as part of the energy function by minimizing the
+all-atom RMSD between the natural and designed atomic
+coordinates of the functional site (Methods).
+Across functional sites involving sequence-contiguous or
+-discontiguous residues from a variety of natural proteins,
+our algorithm is able to produce designs that scaffold the
+site with sub-angstrom RMSD between the experimental
+and predicted structure in three out of five functional sites
+attempted (Figures 2H and S1D). Moreover, the algorithm
+produces designed scaffolds that depart from the native pro-
+tein (Figure 2H). The ability to move natural functional sites
+onto designed backbones has many practical applications,
+including the design of functional proteins that are smaller
+or stabler than their natural counterparts.
+Symmetric and multimeric group constraints
+Beyond proteins containing partial constraints, we next in-
+crease the complexity of our protein designs by generating
+structures that contain constraints over multiple subunits. A
+foundational design task for the generation of idealized, de
+novo proteins is to constrain structural symmetry (7, 22).
+To generate symmetric proteins, we first enforce the notion
+of a repeated unit that is repeated K times when design-
+ing a K-fold symmetry (where we can control the value of
+K). To guide the optimization toward symmetric structures,
+we add various constraints on the distances among the cen-
+troids of each repeated unit as part of the energy function
+(Methods). In our high-level language, a symmetric pro-
+tein would be encoded by repeating the same non-terminal
+symbol K times (corresponding to the repeated unit); the
+symmetry constraint is then placed at the level of the syntax
+tree containing these repeated non-terminals (Figure 3A).
+Using these symmetric constraints, we show that we can pro-
+gram the level of symmetry within a protein design. When
+directed to design 3- to 8-fold symmetry, the generative
+model produces a diverse set of high-confidence structures
+(Figures 3B, S2A, and S2B), including folds that have com-
+mon analogs in nature (including coiled-coils, beta pro-
+pellers, beta sandwiches, beta barrels, and TIM barrels) as
+well as highly-idealized designs that are different from nat-
+ural structures, including a pentagonal star-shaped protein
+(with a TM-score of 0.48 to the nearest PDB structure 3S38;
+row 1 and column 3 in Figure 3B) and a cube-shape protein
+(nearest-PDB TM-score of 0.51 to PDB 7DEG; row 2 and
+column 2 in Figure 3B). The highlighted symmetric proteins
+in Figure 3B have nearest-PDB TM-scores ranging from
+4
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521526 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+A high-level programming language for generative protein design
+Figure 3. Programming symmetry and homo-oligomerization. (A) A graphical representation of a program for designing a single protein
+chain with 3-fold symmetry based on a repeated subsequence. (B) Example designs varying fold symmetry from 3- to 8-fold. (C) 1000
+randomly sampled symmetric protein designs were “roundtripped” by sampling ten sequences via ESM-IF1 inverse folding (21) of their
+backbones followed by ESMFold structure prediction. The ESMFold pLDDT of the starting backbone is indicated on the horizontal axis.
+The lowest of the 10 RMSDs comparing the starting and roundtripped backbone atoms is indicated on the vertical axis. Blue lines indicate
+density contours and hexagonal bins are darker with greater density. We observed that a more confident design is associated with roundtrip
+success. (D) 1,000 randomly sampled inverse folding samples are plotted according to their ESM-IF1 perplexity on the horizontal axis
+and their roundtrip RMSD on the vertical axis. We observed that a lower perplexity sequence is associated with roundtrip success. (E)
+Example homo-oligomers with increasing numbers of individual protomers. The tetrameric, hexameric, and octameric oligomers depicted
+here form globular polyhedral shapes rather than the rotational symmetry of designs in (B).
+5
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521526 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+A high-level programming language for generative protein design
+Figure 4. Programming two levels of symmetry. (A) A graphical representation of a program for designing two levels of symmetry
+in which a homo-oligomeric symmetric dimer represents the top level of symmetry and each unit within the dimer also has two-fold
+symmetry. (B) Example oligomers with two levels of symmetry, in which we procedurally enumerate across a grid in which we vary the
+top-level symmetry across the rows and the bottom-level symmetry across the columns. Discrete chains are indicated by different colors.
+(C) 1,000 randomly sampled two-level symmetric protein oligomer designs were “roundtripped” by sampling ten sequences via ESM-IF1
+inverse folding (21) of their backbones followed by ESMFold structure prediction (Methods). The ESMFold pLDDT of the starting
+backbone is indicated on the horizontal axis. The lowest of the 10 RMSDs comparing the starting and roundtripped backbone atoms is
+indicated on the vertical axis. Blue lines indicate density contours and hexagonal bins are darker with greater density. We observed that a
+more confident design is associated with roundtrip success. (D) 1,000 randomly sampled inverse folding samples are plotted according
+to their ESM-IF1 perplexity on the horizontal axis and their roundtrip RMSD on the vertical axis. We observed that a lower perplexity
+sequence is associated with roundtrip success.
+6
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521526 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+A high-level programming language for generative protein design
+0.47 to 0.86, with a median TM-score of 0.64; TM-scores
+for all seeds are plotted in Figure S2C.
+To increase our confidence that these idealized structures
+correspond to valid and designable backbones, we observe
+that sampling sequences via inverse folding with the ESM-
+IF1 and ProteinMPNN models (21, 23) followed by struc-
+ture prediction of the sequence samples can reproducibly
+recover the original backbone geometry (Methods), in many
+instances with sub-angstrom backbone-atom RMSD. To in-
+crease our confidence that a successful “roundtrip” through
+inverse folding indicates designable backbones, we observe
+that high confidence designs indicates better roundtrip suc-
+cess (Figures 3C and S2D) and that the ability to sample
+a low perplexity sequence also indicates roundtrip success
+(Figure 3D).
+Beyond single-chain symmetries, we can also design multi-
+meric proteins similarly. We enforce the notion of single or
+multiple chains in our programming language with a “single
+chain” constraint that dictates that all terminal elements in
+a subtree belong to the same chain (Methods); to design
+multimeric proteins, we need only remove this constraint.
+Example multimeric symmetric proteins involving 4- to
+8-mers are provided in Figure 3E.
+Hierarchical constraints
+Formalizing our constraints into a syntax tree naturally en-
+ables the specification of hierarchical constraints, which
+enables more complex protein designs. As an initial demon-
+stration, guided by our high-level language’s formalization,
+we design different levels of symmetry at two levels of
+hierarchy, where the lower level of symmetry is specified
+within a chain and the upper level of symmetry is specified
+among protomers in a homo-oligomer (Figure 4A). We pro-
+cedurally enumerate over examples that range from a dimer
+of units with 2-fold symmetry to a tetramer of units with
+4-fold symmetry (Figures 4B, S3A, and S3B). As in the
+single-chain symmetric design setting, we observe success-
+ful structure prediction roundtrips through inverse folding,
+and that both high-confidence predicted structures and low
+inverse folding perplexity indicate roundtrip success (Fig-
+ures 4C and 4D). Many of the designs with two levels of
+symmetry have low overall similarity to structures in the
+PDB; for example, a dimer of 2-fold symmetry in which
+opposing beta sheets form a regular checkerboard pattern
+(nearest-PDB TM-score of 0.49 to PDB 3W38; row 1 and
+column 1 in Figure 4B). The highlighted homo-oligomers
+of two-level symmetry in Figure 4B have nearest-PDB TM-
+scores ranging from 0.25 to 0.52, with a median TM-score
+of 0.48; TM-scores for all seeds are plotted in Figure S3C.
+Another hierarchical design setting is to combine the
+function-scaffolding and the symmetric design tasks de-
+scribed above, as some functions are enhanced by repeti-
+tion of a functional site; for example, when improving the
+strength of a binding interaction, multiple binding sites on a
+protein could synergize such that the overall binding avidity
+is greater than the sum of the individual affinities (24). This
+task requires two levels of hierarchy: the top level specifies
+symmetry while the bottom level specifies the side-chain
+atomic coordination constraint (Figure 5A). With this cor-
+responding program, we can generate designs in which an
+atomic-level constraint is enforced on multiple functional
+sites over the protein, the overall protein organization is
+constrained to be symmetric, and we can control the level
+of designed symmetry (Figures 5B and S4A–S4C).
+We lastly show that we can specify protein designs that
+have even deeper levels of hierarchy in their constraints
+(Figure 5C) by designing protein assemblies that combine
+both symmetry and asymmetry. For example, we designed
+a protein complex composed of four units in which a pair
+of the chains are symmetric to each other (and each unit
+internally has two-fold symmetry) and where another pair
+of chains are symmetric to each other (and each unit also
+internally has two-fold symmetry), but the two pairs are
+asymmetric to each other (Figures 5C, 5D, S4D, and S4E).
+Our high-level programming language readily enables us to
+control the complexity of the generated complexes such that,
+for example, one of the pairs consists of chains with three-
+fold symmetry (Figure 5E) or that the complex consists of
+five chains (a pair of symmetric chains of two-fold symme-
+try asymmetrically complexed with a triple of symmetric
+chains of two-fold symmetry) (Figure 5F). We find that
+our optimization procedure can produce designed structures
+consistent with all of these hierarchical specifications.
+Related work
+This paper is related to classical work that attempts to (i)
+classify a set of common sequence or structure motifs (3, 4)
+and (ii) manually combine these motifs to generate new
+proteins (7–14). More recently, deep-learning-based meth-
+ods have increased the complexity of designable structures
+(17, 20, 22) and machine-learning-based generative mod-
+els have shown increasingly sophisticated design capabili-
+ties. These include sequence-based Potts models and autore-
+gressive language models for designing sequences (25–27),
+Markov Chain Monte Carlo algorithms combined with struc-
+ture prediction for jointly designing sequences and struc-
+tures (17, 20, 22), inverse folding models that use structural
+backbone coordinates to design sequences (21, 23), and
+concurrent work using diffusion models for designing pro-
+tein backbones (28, 29). A key contribution of this study is
+to combine the modularity aspired to by classical methods
+with the power of modern generative models, in particular
+improvements in the accuracy and efficiency of language-
+model-based protein structure prediction (16).
+7
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521526 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+A high-level programming language for generative protein design
+Figure 5. Programming complex hierarchical constraints. (A) A graphical representation of a program for scaffolding three functional
+sites in which those sites have a 3-fold symmetry. (B) Example 3-fold symmetric scaffolds for the IL10 and ACE2 binding sites that
+achieve sub-angstrom RMSD averaged across the three sites. (C) A graphical representation of a program that specifies an asymmetric
+protein complex consisting of two pairs of chains. Each pair is constrained to have 2-fold symmetry between the constituent chains.
+Furthermore, each constituent chain itself has 2-fold symmetry. (D) A generated protein structure as specified by the program depicted
+in (C). Discrete chains are indicated by different colors. (E) A generated protein structure as specified by the program depicted in (C)
+except where one of the pairs has constituent chains that have three-fold symmetry. Discrete chains are indicated by different colors. (F)
+A generated protein structure as specified by the program depicted in (C) except where one of the pairs is replaced with a symmetric
+trimer (where each constituent chain in the trimer has two-fold symmetry). Discrete chains are indicated by different colors.
+8
+The copyright holder for this preprint this version posted December 22, 2022. ; https://doi.org/10.1101/2022.12.21.521526 doi: bioRxiv preprint
+(which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made
+. CC-BY-NC-ND 4.0 International license available under a
+A high-level programming language for generative protein design
+Discussion
+In this study, we show that generative artificial intelligence
+enables high-level programmability at a new level of combi-
+natorial complexity. We propose a programming language
+that can express high-level programs for the design of pro-
+teins at diverse biological scales, including atomic-level
+coordinates, secondary structure, and high-level symmetries
+within single chains and the units of self-assembling multi-
+chain complexes. We show that programs written in the
+abstract language can be compiled into an energy function
+and that the corresponding generative model is capable of
+fulfilling complex constraints within an overall coherent
+structure.
+We demonstrate programs of increasing levels of complexity,
+including the design of homo-oligomers with two levels of
+symmetry, symmetric functional scaffolds, and asymmetric
+complexes of subunits that themselves have two levels of
+symmetry. The approach reveals a large space of idealized
+protein designs created from top-down design principles.
+Especially as the complexity of the constraints increases,
+many of the corresponding designs are highly idealized,
+analogous to the regularity of artificially created machines
+and systems.
+Our computational results using two independent inverse
+folding methods suggest that the generated structures are
+designable, since inverse folding models have demonstrated
+high experimental success rates (23). We are also obtaining
+data to experimentally validate the designs.
+More broadly, the formalization offered by a high-level
+programming language enables logical design principles to
+be applied to protein design as in other fields of engineering.
+This has been especially challenging in biology due to the
+way that the amino acid sequence opaquely encodes the
+structure and function. As protein design moves toward the
+engineering of more complex functions, we anticipate that
+such a system will become increasingly useful.

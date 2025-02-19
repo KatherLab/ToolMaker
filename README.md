@@ -1,15 +1,26 @@
-# ToolMaker
+<div align="center">
+<h1>ToolMaker</h1>
+</div>
+
+This repository contains the official code for the paper:
+
+> [**LLM Agents Making Agent Tools**](https://arxiv.org/abs/2502.11705)  
+> Georg Wölflein, Dyke Ferber, Daniel Truhn, Ognjen Arandjelović and Jakob N. Kather  
+> _arXiv_, Feb 2025.
+
+<details>
+<summary>Read abstract</summary>
+Tool use has turned large language models (LLMs) into powerful agents that can perform complex multi-step tasks by dynamically utilising external software components. However, these tools must be implemented in advance by human developers, hindering the applicability of LLM agents in domains which demand large numbers of highly specialised tools, like in life sciences and medicine. Motivated by the growing trend of scientific studies accompanied by public code repositories, we propose ToolMaker, a novel agentic framework that autonomously transforms papers with code into LLM-compatible tools. Given a short task description and a repository URL, ToolMaker autonomously installs required dependencies and generates code to perform the task, using a closed-loop self-correction mechanism to iteratively diagnose and rectify errors. To evaluate our approach, we introduce a benchmark comprising 15 diverse and complex computational tasks spanning both medical and non-medical domains with over 100 unit tests to objectively assess tool correctness and robustness. ToolMaker correctly implements 80% of the tasks, substantially outperforming current state-of-the-art software engineering agents. ToolMaker therefore is a step towards fully autonomous agent-based scientific workflows.
+</details>
+
+![Overview](resources/overview.png)
+
 
 ## Installation
-First, install [`uv`](https://github.com/astral-sh/uv)
-```bash
-pip install uv
-```
-
-Then, create and activate a virtual environment with:
+First, install [`uv`](https://docs.astral.sh/uv/getting-started/installation/). 
+Then, create a virtual environment with:
 ```bash
 uv sync
-source .venv/bin/activate
 ```
 
 Also, create a `.env` file in the root directory with the following content:
@@ -20,22 +31,29 @@ CUDA_VISIBLE_DEVICES=0  # if you have a GPU
 ```
 
 ## Usage
-First, use toolmaker to install the repository:
+First, use toolmaker to install the repository (replace `$TOOL` with the path to the tool definition file, e.g. [`benchmark/tasks/uni_extract_features.yaml`](benchmark/tasks/uni_extract_features.yaml)):
 ```bash
-uv run python -m toolmaker install UNI --name my_uni_installed
+uv run python -m toolmaker install $TOOL --name my_tool_installed
 ```
 
 Then, use toolmaker to create the tool:
 ```bash
-uv run python -m toolmaker create uni_extract_features --name my_uni_tool --installed my_uni_installed
+uv run python -m toolmaker create $TOOL --name my_tool --installed my_tool_installed
 ```
 
 Finally, you can run the tool on one of the test cases:
-```
-uv run python -m toolmaker run my_uni_tool --name kather100k_muc
+```bash
+uv run python -m toolmaker run my_tool --name kather100k_muc
 ```
 Here, `kather100k_muc` is the name of the test case defined in the [tool definition file](benchmark/tasks/uni_extract_features.yaml). 
 See [`benchmark/README.md`](benchmark/README.md) for details on how tools are defined.
+
+## Visualize trajectory
+To visualize the trajectory of the tool creation process (showing actions, LLM calls, etc.), use the following command:
+```bash
+uv run python -m toolmaker.utils.visualize -i tool_output/tools/my_uni_tool/logs.jsonl -o my_uni_tool.html
+```
+This will create a `my_uni_tool.html` file in the current directory which you can view in your browser.
 
 ## Benchmarking
 To run the unit tests that constitute the benchmark, use the following command (note that this requires the `benchmark` dependency group to be installed via `uv sync --group benchmark`):

@@ -1,0 +1,27 @@
+{
+    "python.analysis.typeCheckingMode": "off", // We use mypy for type checking, so turn off Pylance's type checking
+    "python.languageServer": "Pylance", // We use Pylance for auto-complete
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "notebook.formatOnSave.enabled": true,
+    "notebook.defaultFormatter": "charliermarsh.ruff",
+    "python.analysis.importFormat": "absolute",
+    "mypy-type-checker.args": [
+        "--enable-incomplete-feature=NewGenericSyntax"
+    ],
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    "notebook.codeActionsOnSave": {
+        "notebook.source.organizeImports": "explicit"
+    },
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/__pycache__": true
+    },
+    "mypy-type-checker.reportingScope": "workspace",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+}

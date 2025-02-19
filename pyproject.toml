@@ -1,0 +1,84 @@
+[project]
+name = "toolmaker"
+version = "0.2.0"
+authors = [
+    { name = "Georg Wölflein", email = "georg@woelflein.de" },
+    { name = "Dyke Ferber", email = "dyke.ferber@tu-dresden.de" },
+]
+description = "Make LLM tools"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.12.3",
+    "docker>=7.1.0",
+    "fastapi>=0.115.2",
+    "gdown>=5.2.0",
+    "jinja2>=3.1.4",
+    "litellm>=1.60.8",
+    "loguru>=0.7.2",
+    "markdown>=3.7",
+    "markupsafe>=3.0.2",
+    "matplotlib>=3.10.0",
+    "nbconvert>=7.16.4",
+    "nbformat>=5.10.4",
+    "networkx>=3.4.2",
+    "openai>=1.58.1",
+    "pydantic>=2.9.2",
+    "pydot>=3.0.4",
+    "pyte>=0.8.2",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.3",
+    "tenacity>=9.0.0",
+    "typer>=0.15.1",
+    "uvicorn>=0.32.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "ipykernel>=6.29.5",
+    "pandas>=2.2.3",
+    "pytest-asyncio>=0.25.0",
+    "pytest>=8.3.4",
+    "types-beautifulsoup4>=4.12.0.20241020",
+    "types-markdown>=3.7.0.20241204",
+    "types-pyyaml>=6.0.12.20240917",
+    "types-requests>=2.32.0.20241016",
+    "pytest-mock>=3.14.0",
+    "openpyxl>=3.1.5",
+]
+
+[tool.ruff]
+src = ["toolmaker"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I001"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Ignore `F401` (import violations) in all `__init__.py` files
+"*.py" = ["E501"]  # Ignore `E501` (line too long) in all files
+"*.ipynb" = ["E501"]  # Ignore `E501` (line too long) in all notebooks
+
+[tool.mypy]
+exclude = ["tools/*"]  # Don't run mypy on tools created by the agent
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+testpaths = ["tests", "benchmark/tests"]
+pythonpath = ["."]
+
+[dependency-groups]
+benchmark = [
+    "pytest-lazy-fixtures>=1.1.1",
+    "pytest>=8.3.4",
+    "numpy>=2.2.0",
+    "h5py>=3.12.1",
+    "pillow>=11.1.0",
+]

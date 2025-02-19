@@ -4,6 +4,7 @@ benchmark.xml
 /tool_output/install
 /tool_output/tools
 /results.csv
+.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

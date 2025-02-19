@@ -1,0 +1,37 @@
+name: esm_fold_predict
+repo:
+  name: ESM
+  url: "https://github.com/facebookresearch/esm"
+papers: [verkuil2022esm1, hie2022esm2]
+category: genomics_proteomics
+description: >-
+  Generate the representation of a protein sequence and the contact map using Facebook Research's pretrained esm2_t33_650M_UR50D model.
+arguments:
+  sequence:
+    description: Protein sequence to for which to generate representation and contact map.
+    type: str
+returns:
+  sequence_representation:
+    description: Token representations for the protein sequence as a list of floats, i.e. a 1D array of shape L where L is the number of tokens.
+    type: list
+  contact_map:
+    description: Contact map for the protein sequence as a list of list of floats, i.e. a 2D array of shape LxL where L is the number of tokens.
+    type: list
+example:
+  arguments:
+    sequence: "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"
+test_cases:
+  protein2:
+    arguments:
+      sequence: "KALTARQQEVFDLIRDHISQTGMPPTRAEIAQRLGFRSPNAAEEHLKALARKGVIEIVSGASRGIRLLQEE"
+  protein2_with_mask:
+    arguments:
+      sequence: "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG"
+  protein3:
+    arguments:
+      sequence: "K A <mask> I S Q"
+note: >-
+  We can very simply ask the model to reconstruct one of the example functions from the README
+  (see: `After pip install, you can load and use a pretrained model as follows:`). 
+  This repository does not contain any simple CLI functions, but examples. 
+  For now we ask it to re-implement one of the examples.

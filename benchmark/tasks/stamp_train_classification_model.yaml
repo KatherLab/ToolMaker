@@ -1,0 +1,73 @@
+name: stamp_train_classification_model
+repo:
+  name: STAMP
+  url: "https://github.com/KatherLab/STAMP"
+  branch: v1
+papers: [elnahhas2024stamp]
+category: pathology
+description: Train a model for biomarker classification. You will be supplied with the path to the folder containing the whole slide images, alongside a path to a CSV file containing the training labels.
+arguments:
+  slide_dir:
+    description: Path to the folder containing the whole slide images
+    type: str
+  clini_table:
+    description: Path to the CSV file containing the clinical data
+    type: str
+  slide_table:
+    description: Path to the CSV file containing the slide metadata
+    type: str
+  target_column:
+    description: The name of the column in the clinical data that contains the target labels
+    type: str
+  trained_model_path:
+    description: Path to the *.pkl file where the trained model should be saved by this function
+    type: str
+returns:
+  num_params:
+    description: The number of parameters in the trained model
+    type: int
+example:
+  arguments:
+    slide_dir: /mount/input/TCGA-BRCA-SLIDES
+    clini_table: /mount/input/TCGA-BRCA-DX_CLINI.xlsx
+    slide_table: /mount/input/TCGA-BRCA-DX_SLIDE.csv
+    target_column: TP53_driver
+    trained_model_path: /mount/output/STAMP-BRCA-TP53-model.pkl
+  mount:
+    "tcga/TCGA-BRCA-SLIDES": "TCGA-BRCA-SLIDES"
+    "tcga/TCGA-BRCA-DX_CLINI.xlsx": "TCGA-BRCA-DX_CLINI.xlsx"
+    "tcga/TCGA-BRCA-DX_SLIDE.csv": "TCGA-BRCA-DX_SLIDE.csv"
+test_cases:
+  crc_msi:
+    arguments:
+      slide_dir: /mount/input/TCGA-CRC-SLIDES
+      clini_table: /mount/input/TCGA-CRC-DX_CLINI.xlsx
+      slide_table: /mount/input/TCGA-CRC-DX_SLIDE.csv
+      target_column: isMSIH
+      trained_model_path: /mount/output/STAMP-CRC-MSI-model.pkl
+    mount:
+      "tcga/TCGA-CRC-SLIDES": "TCGA-CRC-SLIDES"
+      "tcga/TCGA-CRC-DX_CLINI.xlsx": "TCGA-CRC-DX_CLINI.xlsx"
+      "tcga/TCGA-CRC-DX_SLIDE.csv": "TCGA-CRC-DX_SLIDE.csv"
+  crc_braf:
+    arguments:
+      slide_dir: /mount/input/TCGA-CRC-SLIDES
+      clini_table: /mount/input/TCGA-CRC-DX_CLINI.xlsx
+      slide_table: /mount/input/TCGA-CRC-DX_SLIDE.csv
+      target_column: BRAF
+      trained_model_path: /mount/output/STAMP-CRC-BRAF-model.pkl
+    mount:
+      "tcga/TCGA-CRC-SLIDES": "TCGA-CRC-SLIDES"
+      "tcga/TCGA-CRC-DX_CLINI.xlsx": "TCGA-CRC-DX_CLINI.xlsx"
+      "tcga/TCGA-CRC-DX_SLIDE.csv": "TCGA-CRC-DX_SLIDE.csv"
+  crc_kras:
+    arguments:
+      slide_dir: /mount/input/TCGA-CRC-SLIDES
+      clini_table: /mount/input/TCGA-CRC-DX_CLINI.xlsx
+      slide_table: /mount/input/TCGA-CRC-DX_SLIDE.csv
+      target_column: KRAS
+      trained_model_path: /mount/output/STAMP-CRC-KRAS-model.pkl
+    mount:
+      "tcga/TCGA-CRC-SLIDES": "TCGA-CRC-SLIDES"
+      "tcga/TCGA-CRC-DX_CLINI.xlsx": "TCGA-CRC-DX_CLINI.xlsx"
+      "tcga/TCGA-CRC-DX_SLIDE.csv": "TCGA-CRC-DX_SLIDE.csv"
