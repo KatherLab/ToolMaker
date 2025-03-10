@@ -3,6 +3,8 @@ from typing import Protocol
 
 import litellm
 import tenacity
+import os
+import functools
 from litellm.types.utils import ModelResponse
 from loguru import logger
 from openai.types.chat import (
@@ -102,4 +104,6 @@ def completion_factory(model: str) -> ChatCompletion:
         return litellm_completion_retry_on_api_error
     elif "claude" in model:
         return claude_completion
+    elif "ollama" in model:
+        return functools.partial(litellm.completion, api_base=os.getenv("LOCAL_LLM_ENDPOINT"))
     return litellm.completion
