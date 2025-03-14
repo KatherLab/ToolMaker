@@ -11,7 +11,7 @@ This folder organized as follows:
 
 ## Task definitions ([`tasks/`](tasks/))
 
-Tasks are defined in the [`tasks/`](tasks/) directory. Each task is defined in a separate YAML file, e.g. the task `medsam_inference` is defined in the file [`tasks/medsam_inference.yaml`](tasks/medsam_train_model.yaml).
+Tasks are defined in the [`tasks/`](tasks/) directory. Each task is defined in a separate YAML file, e.g. the task `medsam_inference` is defined in the file [`tasks/medsam_inference.yaml`](tasks/medsam_inference.yaml).
 
 Tasks are defined using the following structure:
 
