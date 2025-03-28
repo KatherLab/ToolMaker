@@ -194,7 +194,9 @@ class DockerRuntimeClient(HTTPRuntimeClient):
     ) -> Container:
         device_requests = []
         if gpus is None:
-            gpus = os.getenv("CUDA_VISIBLE_DEVICES", "").split(",")
+            gpus = [
+                gpu for gpu in os.getenv("CUDA_VISIBLE_DEVICES", "").split(",") if gpu
+            ]
         if gpus:
             device_requests.append(
                 DeviceRequest(device_ids=gpus, capabilities=[["gpu"]])
