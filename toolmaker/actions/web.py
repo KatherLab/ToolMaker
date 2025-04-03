@@ -13,13 +13,10 @@ from gdown.download_folder import (
 )
 from gdown.download_folder import _GoogleDriveFile as GdownGoogleDriveFile
 from gdown.exceptions import FileURLRetrievalError, FolderContentsMaximumLimitError
+from loguru import logger
 from pydantic import BaseModel, Field
 
-from toolmaker.actions.actions import (
-    Action,
-    Observation,
-    register_action,
-)
+from toolmaker.actions.actions import Action, Observation, register_action
 from toolmaker.actions.errors import FunctionCallError
 
 
@@ -61,9 +58,16 @@ class Browse(Action):
     url: str = Field(..., description="The URL to open.")
 
     def __call__(self) -> BrowseObservation:
+        logger.info(f"Browsing {self.url}")
         try:
             response = requests.get(self.url)
-            content = parse_html(response.content)
+            try:
+                content = parse_html(response.content)
+            except Exception:
+                logger.warning(
+                    f"Failed to parse HTML for {self.url}, using raw content"
+                )
+                content = response.content
             return BrowseObservation(status_code=response.status_code, content=content)
         except requests.exceptions.RequestException as e:
             raise FunctionCallError(str(e))
