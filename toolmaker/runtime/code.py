@@ -2,8 +2,8 @@ from collections.abc import Mapping
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel
+from toolarena.definition import ArgumentValue
 
-from toolmaker.definition import ArgumentValue
 from toolmaker.utils.env import substitute_env_vars
 
 

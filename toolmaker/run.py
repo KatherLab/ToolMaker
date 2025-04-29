@@ -4,8 +4,8 @@ import time
 from pathlib import Path
 
 import yaml
+from toolarena.definition import ToolDefinition, ToolInvocation
 
-from toolmaker.definition import ToolDefinition, ToolInvocation
 from toolmaker.runtime.client import DockerRuntimeClient, Mounts
 from toolmaker.runtime.code import FunctionCall, FunctionCallResult
 from toolmaker.utils.env import substitute_env_vars

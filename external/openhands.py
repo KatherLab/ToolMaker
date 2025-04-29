@@ -2,10 +2,11 @@ import shutil
 from pathlib import Path
 from typing import Annotated
 
-import toolmaker
 import typer
 from loguru import logger
-from toolmaker.definition import Repository, ToolDefinition
+from toolarena.definition import Repository, ToolDefinition
+
+import toolmaker
 from toolmaker.runtime.client import Mounts
 from toolmaker.utils.env import substitute_env_vars
 from toolmaker.utils.io import rmdir
@@ -165,4 +166,5 @@ def create_openhands_task(
 
 
 if __name__ == "__main__":
+    typer.run(create_openhands_task)
     typer.run(create_openhands_task)

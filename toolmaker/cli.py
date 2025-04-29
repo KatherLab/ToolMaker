@@ -7,8 +7,8 @@ from typing import Annotated, Optional
 
 import typer
 import yaml
+from toolarena.definition import ToolDefinition
 
-from toolmaker.definition import ToolDefinition
 from toolmaker.llm import LLM
 from toolmaker.run import run_tool
 from toolmaker.runtime.client import (

@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pytest
 from pytest_lazy_fixtures import lf
-from toolmaker.definition import ToolDefinition, ToolInvocation
+from toolarena.definition import ToolDefinition, ToolInvocation
+
 from toolmaker.run import ToolRunResult, is_run_cached, run_tool
 from toolmaker.utils.paths import TASKS_DIR
 

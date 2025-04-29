@@ -1,8 +1,9 @@
 from collections.abc import Callable, MutableSequence
 from typing import cast
 
+from toolarena.definition import ToolDefinition
+
 from toolmaker.agent import AgentState, completion_step
-from toolmaker.definition import ToolDefinition
 from toolmaker.llm import LLM, LLM_MODEL, LLM_MODEL_REASONING
 from toolmaker.runtime.client import HTTPRuntimeClient
 from toolmaker.runtime.code import FunctionCall
@@ -120,4 +121,6 @@ def make_tool(
 
         raise RuntimeError("Max iterations reached")
     finally:
+        runtime.stop()
+        runtime.stop()
         runtime.stop()

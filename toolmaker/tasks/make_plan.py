@@ -1,9 +1,11 @@
 from typing import cast
 
+from toolarena.definition import ToolDefinition
+
 from toolmaker.actions import ACTIONS
 from toolmaker.actions.io import WriteFile
 from toolmaker.agent import Agent, AgentState, Runtime, completion_step
-from toolmaker.definition import ToolDefinition, get_local_install_path
+from toolmaker.definition import get_local_install_path
 from toolmaker.llm import LLM, LLM_MODEL, LLM_MODEL_REASONING
 from toolmaker.runtime.client import HTTPRuntimeClient
 from toolmaker.tasks.install import SYSTEM_PROMPT, InstalledRepository
