@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+      - toolarena
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "pyproject.toml"
+      - name: Install the project
+        run: uv sync --all-extras --dev
+      - name: Run tests
+        run: uv run pytest tests
+
+  build-cpu:
+    needs: test
+    uses: ./.github/workflows/build.yml
+    with:
+      arch: cpu
+      tag: cpu
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+  
+  build-cuda:
+    needs: test
+    uses: ./.github/workflows/build.yml
+    with:
+      arch: cuda
+      tag: cuda
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
