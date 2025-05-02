@@ -122,5 +122,3 @@ def make_tool(
         raise RuntimeError("Max iterations reached")
     finally:
         runtime.stop()
-        runtime.stop()
-        runtime.stop()

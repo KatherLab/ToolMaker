@@ -8,7 +8,7 @@ Where <info_path> is the path to the function info file. The file should be a JS
     "code": <code_of_function>,
     "path": <path_to_function_file>,      # This script will write the code to this file
     "name": <name_of_function>,           # The name of the function to call
-    "args": <arguments_of_function>,      # The keyword arguments to pass to the function, as a dictionary
+    "args": <arguments_of_function>,      # The keyword arguments to pass to the function, as a list of {"name": <name_of_argument>, "value": <value_of_argument>}
     "output_path": <path_to_output_file>  # The path to the output file. The function must produce a JSON serializable object.
 }
 """
@@ -46,6 +46,6 @@ if __name__ == "__main__":
     with open(info["path"], "w") as f:
         f.write(info["code"])
     function = load_symbol_from_file(info["path"], info["name"])
-    result = function(**info["args"])
+    result = function(**{arg["name"]: arg["value"] for arg in info["args"]})
     with open(info["output_path"], "w") as f:
         json.dump({"result": result}, f)

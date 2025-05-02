@@ -93,3 +93,4 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 toolmaker = "toolmaker.cli:app"
+tviz = "toolmaker.utils.visualize:app"

@@ -17,4 +17,5 @@ RUN echo ">>>START INSTALL<<<" && \
     . /toolmaker_runtime/.env && \
     set +o allexport && \
     /toolmaker_runtime/install.sh && \
+    rm -f /toolmaker_runtime/.env && \
     echo ">>>END INSTALL<<<"
