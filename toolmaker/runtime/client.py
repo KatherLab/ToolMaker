@@ -6,6 +6,7 @@ from typing import Protocol, Self, Sequence
 from loguru import logger
 from toolarena.runtime import DockerRuntimeClient as ToolArenaDockerRuntimeClient
 from toolarena.runtime import Mounts, get_docker
+from typing_extensions import deprecated
 
 from toolmaker.actions import (
     ACTIONS,
@@ -44,6 +45,7 @@ class DockerRuntimeClient(ToolArenaDockerRuntimeClient, RuntimeClient):
         response = self.http_client.post(f"{self.url}/run", json=function.model_dump())
         return FunctionCallResult.model_validate_json(response.text)
 
+    @deprecated("Use `toolarena.runtime.build_image` instead")
     def save_checkpoint(
         self, tag: str, image: str = TOOL_CHECKPOINT_IMAGE_NAME
     ) -> None:

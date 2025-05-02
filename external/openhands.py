@@ -153,7 +153,7 @@ def create_openhands_task(
         output=output_mount_dir,
         input_mapping=definition.example.mount,
     )
-    mounts.reset()  # copies data
+    mounts.setup()  # copies data
 
     # Create workspace directory
     task_dir.joinpath("workspace").mkdir(parents=True, exist_ok=True)

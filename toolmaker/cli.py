@@ -4,19 +4,25 @@ import shutil
 from pathlib import Path
 from typing import Annotated, Optional
 
+import dotenv
 import typer
 import yaml
 from toolarena.definition import ToolDefinition
+from toolarena.runtime import build_image
 
 from toolmaker.llm import LLM
 from toolmaker.run import run_tool
-from toolmaker.runtime.client import DockerRuntimeClient, Mounts
+from toolmaker.runtime.client import (
+    TOOL_CHECKPOINT_IMAGE_NAME,
+    DockerRuntimeClient,
+    Mounts,
+)
 from toolmaker.tasks.install import InstalledRepository, install_repository
 from toolmaker.tasks.make_tool import make_tool
 from toolmaker.utils.env import substitute_env_vars
 from toolmaker.utils.io import chown_dir_using_docker, friendly_name, rmdir
 from toolmaker.utils.logging import logger, tlog
-from toolmaker.utils.paths import BENCHMARK_DIR, TOOLS_DIR
+from toolmaker.utils.paths import BENCHMARK_DIR, TOOL_DOCKERFILE, TOOLS_DIR
 
 app = typer.Typer()
 
@@ -58,6 +64,7 @@ def install(
 ) -> None:
     """Install a repository."""
     definition = ToolDefinition.from_yaml(task / "task.yaml")
+    env = definition.repo.resolve_env()
     run_name = name or definition.name
     if prefix:
         run_name = f"{prefix}/{run_name}"
@@ -81,7 +88,7 @@ def install(
     runtime = DockerRuntimeClient.create(
         f"install-{friendly_name(run_name)}",
         image=f"ghcr.io/katherlab/toolmaker:{definition.requires}",
-        env={k: substitute_env_vars(v) for k, v in definition.repo.env.items()},
+        env=env,
     )
     with tlog.log_to(install_folder / "logs.jsonl"):
         installed_state = install_repository(
@@ -91,14 +98,32 @@ def install(
             max_steps=max_steps,
             include_paper_summary=include_paper_summary,
         )
+        logger.info("Finished installing repository")
         tlog("installed_repository_bash", installed_state.bash())
         with install_folder.joinpath("install.sh").open("w") as f:
             f.write(installed_state.bash())
         with install_folder.joinpath("installed_repository.yaml").open("w") as f:
             yaml.dump(installed_state.response.model_dump(mode="json"), f)
-        runtime.save_checkpoint(tag=f"installed-{friendly_name(run_name)}")
-
+        # Write .env file
+        install_folder.joinpath(".env").touch()
+        for key, value in env.items():
+            dotenv.set_key(install_folder / ".env", key, value)
     runtime.stop()
+
+    # Build a fresh image using the install script
+    # NOTE: we used to do `runtime.save_checkpoint(tag=f"installed-{friendly_name(run_name)}")`
+    checkpoint_tag = f"installed-{friendly_name(run_name)}"
+    logger.info(
+        f"Building image {TOOL_CHECKPOINT_IMAGE_NAME}:{checkpoint_tag} based on the generated install script at {install_folder / 'install.sh'}"
+    )
+    image, logs = build_image(
+        repository=TOOL_CHECKPOINT_IMAGE_NAME,
+        tag=checkpoint_tag,
+        context=install_folder,
+        dockerfile=TOOL_DOCKERFILE,
+        buildargs={"ARCH": definition.requires},  # will build CUDA image if required
+    )
+    logger.info(f"Built image {image.tags[0]}")
 
 
 @app.command("create")
@@ -190,12 +215,12 @@ def create_tool(
     )
 
     def reset_runtime() -> DockerRuntimeClient:
-        mounts.reset()
+        mounts.setup()
         return DockerRuntimeClient.load_checkpoint(
             friendly_name(run_name),
             tag=f"installed-{friendly_name(installed_name)}",
             mounts=mounts,
-            env={k: substitute_env_vars(v) for k, v in definition.repo.env.items()},
+            env=definition.repo.resolve_env(),
         )
 
     # Create the tool

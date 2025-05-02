@@ -84,7 +84,7 @@ def run_tool(
         output=run_folder / "output",
         input_mapping=invocation.mount,
     )
-    mounts.reset()
+    mounts.setup()
 
     runtime = DockerRuntimeClient.load_checkpoint(
         f"run-{friendly_name(tool)}",
