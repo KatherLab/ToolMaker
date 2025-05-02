@@ -1,23 +1,17 @@
 # This image will be built as "toolmaker-runtime:latest"
 
-FROM python:3.12
+ARG ARCH=cpu
+ARG BASE=ghcr.io/georg-wolflein/toolarena:${ARCH}
+FROM ${BASE}
 
-ENV HOST=0.0.0.0
-ENV PORT=8000
+WORKDIR /toolmaker
 
-RUN mkdir -p /toolmaker
-COPY pyproject.toml /toolmaker/pyproject.toml
-COPY uv.lock /toolmaker/uv.lock
-COPY toolmaker /toolmaker/toolmaker
-COPY scripts/toolmaker_function_runner.py /toolmaker/toolmaker_function_runner.py
-COPY scripts/subprocess_utils.py /toolmaker/subprocess_utils.py
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-install-project
 
-RUN python -m pip install uv && \
-    cd /toolmaker && \
-    uv venv && \
-    uv sync
+COPY scripts/toolmaker_function_runner.py scripts/subprocess_utils.py ./
+COPY toolmaker ./toolmaker
 
-RUN mkdir -p /workspace
 WORKDIR /workspace
 
 VOLUME /mount/input

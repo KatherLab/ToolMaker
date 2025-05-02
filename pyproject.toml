@@ -86,3 +86,10 @@ benchmark = [
     "h5py>=3.12.1",
     "pillow>=11.1.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+toolmaker = "toolmaker.cli:app"

@@ -41,10 +41,21 @@ class AgentState[T](WithResponse[T]):
     def with_response[TResponse](self, response: TResponse) -> AgentState[TResponse]:
         return dataclasses.replace(self, response=response)  # type: ignore
 
+    @classmethod
+    def _bash_command_representation(cls, action: Action) -> str:
+        if not action.bash_side_effect:
+            return "# " + action.bash().replace("\n", "\n# ")
+        else:
+            return f"""(
+    # run in subshell
+    {action.bash()}
+)
+"""
+
     def bash(self) -> str:
         return "\n".join(
             f"""# Step {i}: {remove_newlines(action.reasoning)}
-{'' if action.bash_side_effect else '# '}{action.bash()}
+{self._bash_command_representation(action)}
 # observation: {remove_newlines(repr(observation))}
 """
             for i, (action, observation) in enumerate(self.actions)

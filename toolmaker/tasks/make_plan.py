@@ -7,7 +7,7 @@ from toolmaker.actions.io import WriteFile
 from toolmaker.agent import Agent, AgentState, Runtime, completion_step
 from toolmaker.definition import get_local_install_path
 from toolmaker.llm import LLM, LLM_MODEL, LLM_MODEL_REASONING
-from toolmaker.runtime.client import HTTPRuntimeClient
+from toolmaker.runtime.client import DockerRuntimeClient
 from toolmaker.tasks.install import SYSTEM_PROMPT, InstalledRepository
 from toolmaker.utils.logging import tlog
 from toolmaker.utils.papers import get_paper_summary_prompt
@@ -87,7 +87,7 @@ As such, the signature of the function will be:
 @tlog.state_fn
 def make_plan(
     llm: LLM,
-    runtime: HTTPRuntimeClient,
+    runtime: DockerRuntimeClient,
     definition: ToolDefinition,
     installed_repository: InstalledRepository | None = None,
     include_paper_summary: bool = False,

@@ -56,7 +56,7 @@ def run_tool(
     if prefix:
         tool = f"{prefix}/{tool}"
     tool_folder = TOOLS_DIR / "tools" / tool
-    definition = ToolDefinition.from_yaml(tool_folder / "task_definition.yaml")
+    definition = ToolDefinition.from_yaml(tool_folder / "task.yaml")
     if not installed:
         installed = definition.name
         if prefix:

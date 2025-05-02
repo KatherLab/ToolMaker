@@ -5,7 +5,7 @@ from toolarena.definition import ToolDefinition
 
 from toolmaker.agent import AgentState, completion_step
 from toolmaker.llm import LLM, LLM_MODEL, LLM_MODEL_REASONING
-from toolmaker.runtime.client import HTTPRuntimeClient
+from toolmaker.runtime.client import DockerRuntimeClient
 from toolmaker.runtime.code import FunctionCall
 from toolmaker.tasks.assess import is_successful_execution
 from toolmaker.tasks.diagnose import diagnose
@@ -39,7 +39,7 @@ def make_tool(
     definition: ToolDefinition,
     *,
     llm: LLM,
-    reset_runtime: Callable[[], HTTPRuntimeClient],
+    reset_runtime: Callable[[], DockerRuntimeClient],
     installed_repository: InstalledRepository | None = None,
     max_iterations: int = 30,
     include_paper_summary: bool = False,

@@ -35,7 +35,7 @@ Use the tools (actions) that are at your disposal.
 Each time you invoke a tool, provide a one-sentence summary of why you are invoking it
 and what you expect to accomplish by invoking it.
 
-Your working directory is `{LOCAL_WORKSPACE_DIR!s}`.
+Your workspace directory and current working directory is `{LOCAL_WORKSPACE_DIR!s}`.
 
 You will continue the process of invoking tools until you have completed the task."""
 

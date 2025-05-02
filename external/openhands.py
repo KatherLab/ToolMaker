@@ -2,11 +2,10 @@ import shutil
 from pathlib import Path
 from typing import Annotated
 
+import toolmaker
 import typer
 from loguru import logger
 from toolarena.definition import Repository, ToolDefinition
-
-import toolmaker
 from toolmaker.runtime.client import Mounts
 from toolmaker.utils.env import substitute_env_vars
 from toolmaker.utils.io import rmdir
@@ -142,7 +141,7 @@ def create_openhands_task(
     task_dir.joinpath(".env").write_text("\n".join(f"{k}={v}" for k, v in env.items()))
 
     # Copy definition
-    shutil.copy(task, task_dir / "task_definition.yaml")
+    shutil.copy(task, task_dir / "task.yaml")
 
     # Mounts
     input_mount_dir = task_dir / "input"
