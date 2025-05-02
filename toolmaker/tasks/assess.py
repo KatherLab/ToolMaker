@@ -3,9 +3,9 @@ from typing import cast
 from loguru import logger
 from openai.types.chat import ChatCompletionAssistantMessageParam
 from pydantic import BaseModel, Field
+from toolarena.definition import ToolDefinition
 
 from toolmaker.agent import AgentState, completion_step
-from toolmaker.definition import ToolDefinition
 from toolmaker.llm import LLMCall
 from toolmaker.runtime.code import FunctionCallResult
 from toolmaker.utils import truncate_str

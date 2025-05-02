@@ -1,8 +1,10 @@
 from functools import partial
 from typing import cast
 
+from toolarena.definition import Repository, ToolDefinition
+
 from toolmaker.agent import AgentState, completion_step
-from toolmaker.definition import Repository, ToolDefinition, get_local_install_path
+from toolmaker.definition import get_local_install_path
 from toolmaker.llm import LLMCall
 from toolmaker.utils.llm import process_llm_code_output
 from toolmaker.utils.logging import tlog

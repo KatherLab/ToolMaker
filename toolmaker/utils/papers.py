@@ -1,4 +1,4 @@
-from toolmaker.definition import ToolDefinition
+from toolarena.definition import ToolDefinition
 
 
 def get_paper_summary_prompt(definition: ToolDefinition) -> str:

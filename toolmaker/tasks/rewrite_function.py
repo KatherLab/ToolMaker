@@ -1,8 +1,9 @@
 from functools import partial
 from typing import cast
 
+from toolarena.definition import ToolDefinition
+
 from toolmaker.agent import AgentState, completion_step
-from toolmaker.definition import ToolDefinition
 from toolmaker.llm import LLMCall
 from toolmaker.tasks.diagnose import GatheredInformation
 from toolmaker.tasks.implement_function import coding_instructions

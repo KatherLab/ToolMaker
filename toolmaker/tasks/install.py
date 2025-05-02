@@ -3,17 +3,14 @@ from typing import Self
 
 import yaml
 from pydantic import BaseModel, Field
+from toolarena.definition import Repository, ToolDefinition
 
 from toolmaker.agent import Agent, AgentState, Runtime
-from toolmaker.definition import (
-    LOCAL_WORKSPACE_DIR,
-    Repository,
-    ToolDefinition,
-    get_local_install_path,
-)
+from toolmaker.definition import get_local_install_path
 from toolmaker.llm import LLM, LLM_MODEL, typed_call
 from toolmaker.utils.logging import tlog
 from toolmaker.utils.papers import get_paper_summary_prompt
+from toolmaker.utils.paths import LOCAL_WORKSPACE_DIR
 
 
 class InstalledRepository(BaseModel):
@@ -38,7 +35,7 @@ Use the tools (actions) that are at your disposal.
 Each time you invoke a tool, provide a one-sentence summary of why you are invoking it
 and what you expect to accomplish by invoking it.
 
-Your working directory is `{LOCAL_WORKSPACE_DIR!s}`.
+Your workspace directory and current working directory is `{LOCAL_WORKSPACE_DIR!s}`.
 
 You will continue the process of invoking tools until you have completed the task."""
 

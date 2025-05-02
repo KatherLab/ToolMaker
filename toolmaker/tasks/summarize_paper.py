@@ -3,8 +3,8 @@ from typing import Annotated, Optional
 
 import typer
 from loguru import logger
+from toolarena.definition import ToolDefinition
 
-from toolmaker.definition import ToolDefinition
 from toolmaker.llm import LLM, LLM_MODEL_SUMMARY
 from toolmaker.utils.paths import PAPER_SUMMARIES_DIR, PAPERS_DIR
 

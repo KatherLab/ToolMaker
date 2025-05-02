@@ -30,6 +30,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
     "tenacity>=9.0.0",
+    "toolarena",
     "typer>=0.15.1",
     "uvicorn>=0.32.0",
 ]
@@ -47,6 +48,9 @@ dev-dependencies = [
     "pytest-mock>=3.14.0",
     "openpyxl>=3.1.5",
 ]
+
+[tool.uv.sources]
+toolarena = { git = "https://github.com/georg-wolflein/ToolArena" }
 
 [tool.ruff]
 src = ["toolmaker"]
@@ -82,3 +86,11 @@ benchmark = [
     "h5py>=3.12.1",
     "pillow>=11.1.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+toolmaker = "toolmaker.cli:app"
+tviz = "toolmaker.utils.visualize:app"

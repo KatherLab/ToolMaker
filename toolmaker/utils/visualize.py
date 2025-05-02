@@ -7,11 +7,15 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from typing import Any, TypedDict
+from pathlib import Path
+from typing import Annotated, Any, TypedDict
 
+import typer
 from jinja2 import Template
 from markdown import markdown
 from markupsafe import Markup
+
+app = typer.Typer()
 
 
 class LogEntry(TypedDict):
@@ -384,8 +388,12 @@ html = """
     """
 
 
+@app.command()
 def visualize_logs(
-    log_file: str = "toolmaker.jsonl", output_file: str = "toolmaker.html"
+    log_file: Annotated[Path, typer.Argument(help="The path to the log file")],
+    output_file: Annotated[
+        Path, typer.Option("-o", help="The path to the output file")
+    ] = Path("toolmaker.html"),
 ):
     logs: list[LogEntry] = []
     stack: list[LogEntry] = []
@@ -444,7 +452,7 @@ def visualize_logs(
         f.write(rendered_html)
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -452,3 +460,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output_file", type=str, default="toolmaker.html")
     args = parser.parse_args()
     visualize_logs(args.log_file, args.output_file)
+
+
+if __name__ == "__main__":
+    app()

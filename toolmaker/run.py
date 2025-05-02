@@ -4,8 +4,8 @@ import time
 from pathlib import Path
 
 import yaml
+from toolarena.definition import ToolDefinition, ToolInvocation
 
-from toolmaker.definition import ToolDefinition, ToolInvocation
 from toolmaker.runtime.client import DockerRuntimeClient, Mounts
 from toolmaker.runtime.code import FunctionCall, FunctionCallResult
 from toolmaker.utils.env import substitute_env_vars
@@ -56,7 +56,7 @@ def run_tool(
     if prefix:
         tool = f"{prefix}/{tool}"
     tool_folder = TOOLS_DIR / "tools" / tool
-    definition = ToolDefinition.from_yaml(tool_folder / "task_definition.yaml")
+    definition = ToolDefinition.from_yaml(tool_folder / "task.yaml")
     if not installed:
         installed = definition.name
         if prefix:
@@ -84,7 +84,7 @@ def run_tool(
         output=run_folder / "output",
         input_mapping=invocation.mount,
     )
-    mounts.reset()
+    mounts.setup()
 
     runtime = DockerRuntimeClient.load_checkpoint(
         f"run-{friendly_name(tool)}",

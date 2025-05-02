@@ -8,6 +8,7 @@ TASKS_DIR = BENCHMARK_DIR / "tasks"
 TOOLS_DIR = Path(os.getenv("TOOLS_DIR", ROOT_DIR / "tool_output")).resolve()
 PAPERS_DIR = BENCHMARK_DIR / "papers"
 PAPER_SUMMARIES_DIR = TOOLS_DIR / "paper_summaries"
+TOOL_DOCKERFILE = ROOT_DIR / "docker" / "tool.Dockerfile"
 
 
 # Paths in the container

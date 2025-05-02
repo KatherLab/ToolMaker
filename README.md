@@ -16,11 +16,22 @@ Tool use has turned large language models (LLMs) into powerful agents that can p
 ![Overview](resources/overview.png)
 
 
+> [!NOTE]
+> This is an experimental release of ToolMaker that is compatible with the [ToolArena](https://github.com/georg-wolflein/ToolArena) benchmark. ToolArena includes many more tools than the original TM-Bench which was released as part of ToolMaker. As such, the tasks are no longer defined in this repository, but in the ToolArena repository.
+> 
+> You can still access the original code release of ToolMaker including the original TM-Bench benchmark in the [`original`](https://github.com/KatherLab/ToolMaker/tree/original) branch. 
+
 ## Installation
 First, install [`uv`](https://docs.astral.sh/uv/getting-started/installation/). 
 Then, create a virtual environment with:
 ```bash
 uv sync
+```
+
+Make sure you have Docker installed. Pull the following images:
+```bash
+docker pull ghcr.io/katherlab/toolmaker:cpu
+docker pull ghcr.io/katherlab/toolmaker:cuda
 ```
 
 Also, create a `.env` file in the root directory with the following content:
@@ -31,7 +42,7 @@ CUDA_VISIBLE_DEVICES=0  # if you have a GPU
 ```
 
 ## Usage
-First, use toolmaker to install the repository (replace `$TOOL` with the path to the tool definition file, e.g. [`benchmark/tasks/uni_extract_features.yaml`](benchmark/tasks/uni_extract_features.yaml)):
+First, use toolmaker to install the repository (replace `$TOOL` with the path to the tool definition folder, e.g. [`benchmark/tasks/uni_extract_features`](benchmark/tasks/uni_extract_features), which contains the task definition ([`task.yaml`](benchmark/tasks/uni_extract_features/task.yaml)) and optional data folder [`data/`](benchmark/tasks/uni_extract_features/data/)):
 ```bash
 uv run python -m toolmaker install $TOOL --name my_tool_installed
 ```
@@ -45,7 +56,7 @@ Finally, you can run the tool on one of the test cases:
 ```bash
 uv run python -m toolmaker run my_tool --name kather100k_muc
 ```
-Here, `kather100k_muc` is the name of the test case defined in the [tool definition file](benchmark/tasks/uni_extract_features.yaml). 
+Here, `kather100k_muc` is the name of the test case defined in the [tool definition file](benchmark/tasks/uni_extract_features/task.yaml). 
 See [`benchmark/README.md`](benchmark/README.md) for details on how tools are defined.
 
 ## Visualize trajectory
