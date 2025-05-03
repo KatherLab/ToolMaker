@@ -238,7 +238,7 @@ def create_tool(
         tlog("tool_code", code)
 
         # Save code
-        code_file = tool_folder / "code.py"
+        code_file = tool_folder / "implementation.py"
         with code_file.open("w") as f:
             f.write(code)
         logger.info(f"Written code to {code_file}")

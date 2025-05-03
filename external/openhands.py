@@ -36,7 +36,7 @@ def create_openhands_prompt(
 Your task is to create a tool from the repository {definition.repo.name} which implements the function `{definition.name}` to perform the following task: `{definition.description}`.
 While you may perform any necessary installations, configurations, downloads or setups, your deliverables are the following two files:
 1. A bash script, named `/workspace/install.sh` that will install all necessary dependencies for the tool to run.
-2. A Python file, named `/workspace/code.py` that will contain the code for the tool.
+2. A Python file, named `/workspace/implementation.py` that will contain the code for the tool.
 
 # Part 1: Install the repository
 Clone and locally set up the {definition.repo.name} repository from GitHub.
@@ -83,10 +83,10 @@ from code import {definition.name}
 ```
 
 # IMPORTANT:
-- The only two files that you need to produce are `/workspace/install.sh` and `/workspace/code.py` (though you may create other files as well, or install additional dependencies in the process).
+- The only two files that you need to produce are `/workspace/install.sh` and `/workspace/implementation.py` (though you may create other files as well, or install additional dependencies in the process).
 - You may use any tools at your disposal to complete the task.
-- From within a fresh environment (i.e. a fresh Docker image of python:3.12) that contains the `/workspace` directory which is empty except for your `install.sh` and `code.py` files, it should be possible to run the `install.sh` script, and then run the `code.py` file, without any additional prior installations or dependencies.
-- The `code.py` file should NOT contain any imports at the top of the file. The first line of the file should be the function signature (of the `{definition.name}` function). In the body of the function, you may import any necessary modules.
+- From within a fresh environment (i.e. a fresh Docker image of python:3.12) that contains the `/workspace` directory which is empty except for your `install.sh` and `implementation.py` files, it should be possible to run the `install.sh` script, and then run the `implementation.py` file, without any additional prior installations or dependencies.
+- The `implementation.py` file should NOT contain any imports at the top of the file. The first line of the file should be the function signature (of the `{definition.name}` function). In the body of the function, you may import any necessary modules.
 """
     if include_paper_summary:
         prompt += f"\n\n{get_paper_summary_prompt(definition)}"

@@ -73,7 +73,7 @@ def run_tool(
         raise RuntimeError(f"Result is not cached at {result_file}")
 
     run_folder.mkdir(parents=True, exist_ok=True)
-    code = tool_folder.joinpath("code.py").read_text()
+    code = tool_folder.joinpath("implementation.py").read_text()
 
     with run_folder.joinpath("invocation.yaml").open("w") as f:
         yaml.dump(invocation.model_dump(), f)
