@@ -129,9 +129,7 @@ class GoogleDriveListFolder(Action):
     bash_side_effect = False
 
     def bash(self) -> str:
-        return (
-            f"gdown --list {shlex.quote(self.url)}"  # TODO: this is not a valid command
-        )
+        return f"uvx gdown --list {shlex.quote(self.url)}"  # TODO: this is not a valid command
 
 
 @register_action
@@ -159,6 +157,4 @@ class GoogleDriveDownloadFile(Action):
     bash_side_effect = True
 
     def bash(self) -> str:
-        return (
-            f"gdown --fuzzy {shlex.quote(self.url)} -O {shlex.quote(self.output_path)}"
-        )
+        return f"uvx gdown --fuzzy {shlex.quote(self.url)} -O {shlex.quote(self.output_path)}"
