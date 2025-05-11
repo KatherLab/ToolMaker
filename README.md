@@ -22,8 +22,13 @@ Tool use has turned large language models (LLMs) into powerful agents that can p
 > You can still access the original code release of ToolMaker including the original TM-Bench benchmark in the [`original`](https://github.com/KatherLab/ToolMaker/tree/original) branch. 
 
 ## Installation
-First, install [`uv`](https://docs.astral.sh/uv/getting-started/installation/). 
-Then, create a virtual environment with:
+First clone this repository, including submodules (note the `--recursive` flag):
+```bash
+git clone --recursive ehttps://github.com/KatherLab/ToolMaker
+```
+
+Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already.
+Then, create a virtual environment using :
 ```bash
 uv sync
 ```
