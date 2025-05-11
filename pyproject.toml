@@ -50,7 +50,7 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-toolarena = { git = "https://github.com/georg-wolflein/ToolArena" }
+toolarena = { git = "https://github.com/KatherLab/ToolArena" }
 
 [tool.ruff]
 src = ["toolmaker"]

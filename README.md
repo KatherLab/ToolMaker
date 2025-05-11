@@ -17,7 +17,7 @@ Tool use has turned large language models (LLMs) into powerful agents that can p
 
 
 > [!NOTE]
-> This is an experimental release of ToolMaker that is compatible with the [ToolArena](https://github.com/georg-wolflein/ToolArena) benchmark. ToolArena includes many more tools than the original TM-Bench which was released as part of ToolMaker. As such, the tasks are no longer defined in this repository, but in the ToolArena repository.
+> This is an experimental release of ToolMaker that is compatible with the [ToolArena](https://github.com/KatherLab/ToolArena) benchmark. ToolArena includes many more tools than the original TM-Bench which was released as part of ToolMaker. As such, the tasks are no longer defined in this repository, but in the ToolArena repository.
 > 
 > You can still access the original code release of ToolMaker including the original TM-Bench benchmark in the [`original`](https://github.com/KatherLab/ToolMaker/tree/original) branch. 
 

@@ -1,7 +1,7 @@
 # This image will be built as "toolmaker-runtime:latest"
 
 ARG ARCH=cpu
-ARG BASE=ghcr.io/georg-wolflein/toolarena:${ARCH}
+ARG BASE=ghcr.io/katherlab/toolarena:${ARCH}
 FROM ${BASE}
 
 WORKDIR /toolmaker
