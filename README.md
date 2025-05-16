@@ -1,6 +1,9 @@
-<div align="center">
-<h1>ToolMaker</h1>
+<div align="center" style="font-weight: bold;">
+<img src="resources/logo_text.svg" width="400px" alt="ToolMaker" />
+
+<b>Turn GitHub repositories into LLM-compatible tools.</b>
 </div>
+<hr>
 
 <img src="resources/logo.svg" width="130px" align="right" />
 
@@ -15,23 +18,28 @@ This repository contains the official code for the paper:
 Tool use has turned large language models (LLMs) into powerful agents that can perform complex multi-step tasks by dynamically utilising external software components. However, these tools must be implemented in advance by human developers, hindering the applicability of LLM agents in domains which demand large numbers of highly specialised tools, like in life sciences and medicine. Motivated by the growing trend of scientific studies accompanied by public code repositories, we propose ToolMaker, a novel agentic framework that autonomously transforms papers with code into LLM-compatible tools. Given a short task description and a repository URL, ToolMaker autonomously installs required dependencies and generates code to perform the task, using a closed-loop self-correction mechanism to iteratively diagnose and rectify errors. To evaluate our approach, we introduce a benchmark comprising 15 diverse and complex computational tasks spanning both medical and non-medical domains with over 100 unit tests to objectively assess tool correctness and robustness. ToolMaker correctly implements 80% of the tasks, substantially outperforming current state-of-the-art software engineering agents. ToolMaker therefore is a step towards fully autonomous agent-based scientific workflows.
 </details>
 
-![Overview](resources/overview.png)
+## Overview
+ToolMaker is an agentic workflow that turns GitHub repositories into LLM-compatible tools. Given a short task description and a repository URL, ToolMaker autonomously installs required dependencies and generates code to perform the task, using a closed-loop self-correction mechanism to iteratively diagnose and rectify errors.
 
+<div align="center">
+<img src="resources/tool_making.png" width="500px" alt="Tool making" align="center"/>
+</div>
+
+
+## News
+- **[May 2025]** Our [paper](https://arxiv.org/abs/2502.11705) has been accepted at [ACL 2025](https://2025.aclweb.org/)! 🎉
+- **[Feb 2025]** Initial code release.
 
 > [!NOTE]
-> This is an experimental release of ToolMaker that is compatible with the [ToolArena](https://github.com/KatherLab/ToolArena) benchmark. ToolArena includes many more tools than the original TM-Bench which was released as part of ToolMaker. As such, the tasks are no longer defined in this repository, but in the ToolArena repository (though imported into this repository via the [`benchmark`](benchmark/) submodule, which points to ToolArena).
+> This is an experimental release of ToolMaker that is compatible with the [ToolArena](https://github.com/KatherLab/ToolArena) benchmark. ToolArena includes significantly more tools than the original TM-Bench which was released as part of ToolMaker. As such, the tasks are no longer defined in this repository, but in the ToolArena repository (though imported into this repository via the `benchmark` submodule, which points to ToolArena).
 > 
 > You can still access the original code release of ToolMaker including the original TM-Bench benchmark in the [`original`](https://github.com/KatherLab/ToolMaker/tree/original) branch. 
 
-## News
-
-- **[May 2025]** Our [paper](https://arxiv.org/abs/2502.11705) has been accepted at [ACL 2025](https://2025.aclweb.org/)! 🎉
-- **[Feb 2025]** Initial code release
 
 ## Installation
 First clone this repository, including submodules (note the `--recursive` flag):
 ```bash
-git clone --recursive ehttps://github.com/KatherLab/ToolMaker
+git clone --recursive https://github.com/KatherLab/ToolMaker
 ```
 
 Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already.
@@ -77,6 +85,10 @@ To visualize the trajectory of the tool creation process (showing actions, LLM c
 uv run python -m toolmaker.utils.visualize -i tool_output/tools/my_uni_tool/logs.jsonl -o my_uni_tool.html
 ```
 This will create a `my_uni_tool.html` file in the current directory which you can view in your browser.
+
+The diagram below provides an illustration of the ToolMaker workflow in action.
+
+![Overview](resources/overview.png)
 
 ## Benchmarking
 To run the unit tests that constitute the benchmark, use the following command (note that this requires the `benchmark` dependency group to be installed via `uv sync --group benchmark`):
