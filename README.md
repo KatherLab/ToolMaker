@@ -6,7 +6,7 @@ This repository contains the official code for the paper:
 
 > [**LLM Agents Making Agent Tools**](https://arxiv.org/abs/2502.11705)  
 > Georg Wölflein, Dyke Ferber, Daniel Truhn, Ognjen Arandjelović and Jakob N. Kather  
-> _arXiv_, Feb 2025.
+> _Annual Meeting of the Association for Computational Linguistics (ACL)_, July 2025.
 
 <details>
 <summary>Read abstract</summary>
@@ -20,6 +20,11 @@ Tool use has turned large language models (LLMs) into powerful agents that can p
 > This is an experimental release of ToolMaker that is compatible with the [ToolArena](https://github.com/KatherLab/ToolArena) benchmark. ToolArena includes many more tools than the original TM-Bench which was released as part of ToolMaker. As such, the tasks are no longer defined in this repository, but in the ToolArena repository (though imported into this repository via the [`benchmark`](benchmark/) submodule, which points to ToolArena).
 > 
 > You can still access the original code release of ToolMaker including the original TM-Bench benchmark in the [`original`](https://github.com/KatherLab/ToolMaker/tree/original) branch. 
+
+## News
+
+- **[May 2025]** Our [paper](https://arxiv.org/abs/2502.11705) has been accepted at [ACL 2025](https://2025.aclweb.org/)! 🎉
+- **[Feb 2025]** Initial code release
 
 ## Installation
 First clone this repository, including submodules (note the `--recursive` flag):
@@ -84,17 +89,16 @@ To run toolmaker's own unit tests (not to be confused with the unit tests in the
 uv run python -m pytest tests
 ```
 
-## Reference
-If you find our work useful in your research or if you use parts of this code please consider citing our [preprint](https://arxiv.org/abs/2502.11705):
+## Citation
+If you find our work useful in your research or if you use parts of this code please consider citing our [conference paper](https://arxiv.org/abs/2502.11705):
 
 ```bibtex
-@misc{wolflein2025toolmaker,
+@inproceedings{wolflein2025toolmaker,
   author        = {W\"{o}lflein, Georg and Ferber, Dyke and Truhn, Daniel and Arandjelovi\'{c}, Ognjen and Kather, Jakob Nikolas},
   title         = {{LLM} Agents Making Agent Tools},
+  booktitle     = {Annual Meeting of the Association for Computational Linguistics (ACL)},
   year          = {2025},
-  eprint        = {2502.11705},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.CV},
+  month         = {07},
   url           = {https://arxiv.org/abs/2502.11705}
 }
 ```
