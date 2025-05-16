@@ -2,6 +2,8 @@
 <h1>ToolMaker</h1>
 </div>
 
+<img src="resources/logo.svg" width="130px" align="right" />
+
 This repository contains the official code for the paper:
 
 > [**LLM Agents Making Agent Tools**](https://arxiv.org/abs/2502.11705)  
